@@ -1,7 +1,10 @@
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { $ } from 'bun'
 import consola from 'consola'
 import pc from 'picocolors'
 import {
+	type MonorepoBumpContext,
 	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
@@ -10,7 +13,6 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
-	type MonorepoBumpContext,
 	updateChangelog,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
@@ -22,6 +24,17 @@ import {
 	getLatestTag,
 	getLatestTagForPackage,
 } from '../utils/git.ts'
+
+/**
+ * Update package.json version directly (no npm dependency)
+ */
+function updatePackageVersion(pkgPath: string, newVersion: string): void {
+	const pkgJsonPath = join(pkgPath, 'package.json')
+	const content = readFileSync(pkgJsonPath, 'utf-8')
+	const pkg = JSON.parse(content) as Record<string, unknown>
+	pkg.version = newVersion
+	writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
+}
 
 export interface PrOptions {
 	cwd?: string
@@ -63,7 +76,10 @@ function generatePrBody(
 
 	// Statistics
 	const totalCommits = bumps.reduce((acc, b) => acc + b.commits.length, 0)
-	const breakingChanges = bumps.reduce((acc, b) => acc + b.commits.filter((c) => c.breaking).length, 0)
+	const breakingChanges = bumps.reduce(
+		(acc, b) => acc + b.commits.filter((c) => c.breaking).length,
+		0
+	)
 
 	lines.push('')
 	lines.push('<details>')
@@ -86,7 +102,9 @@ function generatePrBody(
 		if (bumps.length > 1) {
 			const hasBreaking = bump.commits.some((c) => c.breaking)
 			const breakingBadge = hasBreaking ? ' ⚠️' : ''
-			lines.push(`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`)
+			lines.push(
+				`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`
+			)
 			lines.push('')
 		}
 
@@ -132,10 +150,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	const cwd = options.cwd ?? process.cwd()
 
 	// Parallel initialization
-	const [config, gitRoot] = await Promise.all([
-		loadConfig(cwd),
-		getGitRoot(),
-	])
+	const [config, gitRoot] = await Promise.all([loadConfig(cwd), getGitRoot()])
 	const baseBranch = options.baseBranch ?? config.baseBranch ?? 'main'
 
 	consola.start('Analyzing commits for release PR...')
@@ -276,7 +291,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Apply version changes and update changelogs
 			for (const bump of bumps) {
 				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
-				await $`cd ${pkgPath} && npm version ${bump.newVersion} --no-git-tag-version`.quiet()
+				updatePackageVersion(pkgPath, bump.newVersion)
 
 				// Update CHANGELOG.md
 				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
@@ -308,7 +323,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Apply version changes and update changelogs
 			for (const bump of bumps) {
 				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
-				await $`cd ${pkgPath} && npm version ${bump.newVersion} --no-git-tag-version`.quiet()
+				updatePackageVersion(pkgPath, bump.newVersion)
 
 				// Update CHANGELOG.md
 				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
@@ -321,7 +336,8 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git push -f -u origin ${PR_BRANCH}`
 
 			// Create PR (or get existing if branch already has PR)
-			const prResult = await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch} 2>&1 || gh pr view ${PR_BRANCH} --json url -q .url`.text()
+			const prResult =
+				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch} 2>&1 || gh pr view ${PR_BRANCH} --json url -q .url`.text()
 
 			// Switch back
 			await $`git checkout ${baseBranch}`

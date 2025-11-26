@@ -167,7 +167,14 @@ describe('commits', () => {
 
 		it('should return null for commits that dont trigger release', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: 'abc', type: 'docs', subject: 'docs', breaking: false, raw: 'docs: docs', files: [] },
+				{
+					hash: 'abc',
+					type: 'docs',
+					subject: 'docs',
+					breaking: false,
+					raw: 'docs: docs',
+					files: [],
+				},
 			]
 
 			expect(determineReleaseType(commits, config)).toBe(null)

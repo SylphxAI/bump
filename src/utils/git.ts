@@ -57,23 +57,25 @@ export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
 	// Parse commits - each starts with ---COMMIT_START---
 	const commitBlocks = result.split('---COMMIT_START---').filter(Boolean)
 
-	return commitBlocks.map((block) => {
-		const lines = block.trim().split('\n')
-		const headerLine = lines[0] ?? ''
-		const [hash, message, body, author, date] = headerLine.split('|')
+	return commitBlocks
+		.map((block) => {
+			const lines = block.trim().split('\n')
+			const headerLine = lines[0] ?? ''
+			const [hash, message, body, author, date] = headerLine.split('|')
 
-		// Remaining non-empty lines are file paths
-		const files = lines.slice(1).filter((line) => line.trim() && !line.startsWith('|'))
+			// Remaining non-empty lines are file paths
+			const files = lines.slice(1).filter((line) => line.trim() && !line.startsWith('|'))
 
-		return {
-			hash: hash ?? '',
-			message: message ?? '',
-			body: body ?? '',
-			author: author ?? '',
-			date: date ?? '',
-			files,
-		}
-	}).filter((c) => c.hash)
+			return {
+				hash: hash ?? '',
+				message: message ?? '',
+				body: body ?? '',
+				author: author ?? '',
+				date: date ?? '',
+				files,
+			}
+		})
+		.filter((c) => c.hash)
 }
 
 /**
@@ -103,7 +105,7 @@ export async function getLatestTag(pattern?: string): Promise<string | null> {
 		// If pattern provided, filter by pattern
 		if (pattern) {
 			const regex = new RegExp(pattern.replace(/\*/g, '.*'))
-			const matchingTags = semverTags.filter(tag => regex.test(tag))
+			const matchingTags = semverTags.filter((tag) => regex.test(tag))
 			return matchingTags[0] ?? null
 		}
 
@@ -152,7 +154,7 @@ export async function getLatestTagForPackage(
 	packageName: string,
 	allTags?: string[]
 ): Promise<string | null> {
-	const tags = getTagsForPackage(packageName, allTags ?? await getAllTags())
+	const tags = getTagsForPackage(packageName, allTags ?? (await getAllTags()))
 	if (tags.length === 0) return null
 
 	// Sort by version (extract version from tag)

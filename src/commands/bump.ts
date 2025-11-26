@@ -2,6 +2,7 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { createReleasesForBumps } from '../adapters/github.ts'
 import {
+	type MonorepoBumpContext,
 	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
@@ -11,7 +12,6 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
-	type MonorepoBumpContext,
 	updateChangelog,
 	updateDependencyVersions,
 	updatePackageVersion,
@@ -49,10 +49,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 	const cwd = options.cwd ?? process.cwd()
 
 	// Parallel initialization - load config and git info concurrently
-	const [config, gitRoot] = await Promise.all([
-		loadConfig(cwd),
-		getGitRoot(),
-	])
+	const [config, gitRoot] = await Promise.all([loadConfig(cwd), getGitRoot()])
 
 	if (options.verbose) {
 		consola.debug('Options:', JSON.stringify(options, null, 2))
@@ -119,7 +116,11 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		bumps = calculateMonorepoBumps(contexts, config, { gitRoot, preid: options.preid, prerelease: options.prerelease })
+		bumps = calculateMonorepoBumps(contexts, config, {
+			gitRoot,
+			preid: options.preid,
+			prerelease: options.prerelease,
+		})
 	} else {
 		// Single package mode
 		const latestTag = await getLatestTag()
@@ -142,7 +143,9 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		if (options.verbose) {
 			consola.debug('Commits:')
 			for (const c of commits) {
-				consola.debug(`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`)
+				consola.debug(
+					`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`
+				)
 			}
 		}
 
@@ -156,7 +159,10 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
 		}
 
-		const bump = calculateSingleBump(pkg, commits, config, { preid: options.preid, prerelease: options.prerelease })
+		const bump = calculateSingleBump(pkg, commits, config, {
+			preid: options.preid,
+			prerelease: options.prerelease,
+		})
 		if (bump) bumps = [bump]
 	}
 

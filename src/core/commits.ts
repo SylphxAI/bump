@@ -149,7 +149,7 @@ export function fileMatchesPackage(
 	}
 
 	// Check if file is within package directory
-	return filePath.startsWith(relativePkgPath + '/') || filePath === relativePkgPath
+	return filePath.startsWith(`${relativePkgPath}/`) || filePath === relativePkgPath
 }
 
 /**
@@ -165,9 +165,7 @@ export function filterCommitsForPackage(
 	return commits.filter((c) => {
 		// If we have file information and package path, use file-based detection
 		if (c.files.length > 0 && packagePath) {
-			const hasMatchingFile = c.files.some((file) =>
-				fileMatchesPackage(file, packagePath, gitRoot)
-			)
+			const hasMatchingFile = c.files.some((file) => fileMatchesPackage(file, packagePath, gitRoot))
 			// If commit has files, only include if files match the package
 			return hasMatchingFile
 		}

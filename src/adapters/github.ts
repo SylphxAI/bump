@@ -73,10 +73,7 @@ export async function isGhAuthenticated(): Promise<boolean> {
  * Check gh CLI availability and authentication (combined, cached)
  */
 export async function checkGhReady(): Promise<{ available: boolean; authenticated: boolean }> {
-	const [available, authenticated] = await Promise.all([
-		isGhCliAvailable(),
-		isGhAuthenticated(),
-	])
+	const [available, authenticated] = await Promise.all([isGhCliAvailable(), isGhAuthenticated()])
 	return { available, authenticated }
 }
 

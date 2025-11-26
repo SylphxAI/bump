@@ -1,6 +1,7 @@
 import consola from 'consola'
 import pc from 'picocolors'
 import {
+	type MonorepoBumpContext,
 	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
@@ -9,7 +10,6 @@ import {
 	groupCommitsByType,
 	isMonorepo,
 	loadConfig,
-	type MonorepoBumpContext,
 } from '../core/index.ts'
 import {
 	getCurrentBranch,
