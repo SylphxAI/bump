@@ -9,12 +9,19 @@ export interface GitCommit {
 	files: string[]
 }
 
+// Caches for expensive git operations (cleared per CLI invocation)
+let cachedGitRoot: string | null = null
+let cachedRemoteUrl: string | null = null
+let cachedGitHubRepoUrl: string | null = null
+
 /**
- * Get the current git root directory
+ * Get the current git root directory (cached)
  */
 export async function getGitRoot(): Promise<string> {
+	if (cachedGitRoot !== null) return cachedGitRoot
 	const result = await $`git rev-parse --show-toplevel`.text()
-	return result.trim()
+	cachedGitRoot = result.trim()
+	return cachedGitRoot
 }
 
 /**
@@ -232,13 +239,18 @@ export async function isWorkingTreeClean(): Promise<boolean> {
 }
 
 /**
- * Get remote URL
+ * Get remote URL (cached for 'origin')
  */
 export async function getRemoteUrl(remote = 'origin'): Promise<string | null> {
+	// Only cache 'origin' remote
+	if (remote === 'origin' && cachedRemoteUrl !== null) return cachedRemoteUrl
 	try {
 		const result = await $`git remote get-url ${remote}`.text()
-		return result.trim() || null
+		const url = result.trim() || null
+		if (remote === 'origin') cachedRemoteUrl = url
+		return url
 	} catch {
+		if (remote === 'origin') cachedRemoteUrl = null
 		return null
 	}
 }
@@ -263,14 +275,23 @@ export function parseGitHubRepo(url: string): { owner: string; repo: string } | 
 }
 
 /**
- * Get GitHub repo URL (https://github.com/owner/repo)
+ * Get GitHub repo URL (cached)
  */
 export async function getGitHubRepoUrl(): Promise<string | null> {
+	if (cachedGitHubRepoUrl !== null) return cachedGitHubRepoUrl
+
 	const remoteUrl = await getRemoteUrl()
-	if (!remoteUrl) return null
+	if (!remoteUrl) {
+		cachedGitHubRepoUrl = null
+		return null
+	}
 
 	const repo = parseGitHubRepo(remoteUrl)
-	if (!repo) return null
+	if (!repo) {
+		cachedGitHubRepoUrl = null
+		return null
+	}
 
-	return `https://github.com/${repo.owner}/${repo.repo}`
+	cachedGitHubRepoUrl = `https://github.com/${repo.owner}/${repo.repo}`
+	return cachedGitHubRepoUrl
 }

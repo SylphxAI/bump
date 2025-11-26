@@ -130,9 +130,13 @@ async function findReleasePr(): Promise<{ number: number; headRefName: string } 
  */
 export async function runPr(options: PrOptions = {}): Promise<void> {
 	const cwd = options.cwd ?? process.cwd()
-	const config = await loadConfig(cwd)
+
+	// Parallel initialization
+	const [config, gitRoot] = await Promise.all([
+		loadConfig(cwd),
+		getGitRoot(),
+	])
 	const baseBranch = options.baseBranch ?? config.baseBranch ?? 'main'
-	const gitRoot = await getGitRoot()
 
 	consola.start('Analyzing commits for release PR...')
 

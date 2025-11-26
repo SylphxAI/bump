@@ -47,8 +47,12 @@ export interface BumpOptions {
 
 export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext> {
 	const cwd = options.cwd ?? process.cwd()
-	const config = await loadConfig(cwd)
-	const gitRoot = await getGitRoot()
+
+	// Parallel initialization - load config and git info concurrently
+	const [config, gitRoot] = await Promise.all([
+		loadConfig(cwd),
+		getGitRoot(),
+	])
 
 	if (options.verbose) {
 		consola.debug('Options:', JSON.stringify(options, null, 2))
@@ -176,14 +180,18 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		return { config, packages, commits: allCommits, bumps, dryRun: true }
 	}
 
-	// Check working tree
-	if (options.commit !== false && !(await isWorkingTreeClean())) {
+	// Pre-fetch repo URL and check working tree in parallel
+	const [isClean, repoUrl] = await Promise.all([
+		options.commit !== false ? isWorkingTreeClean() : Promise.resolve(true),
+		getGitHubRepoUrl(),
+	])
+
+	if (options.commit !== false && !isClean) {
 		consola.warn('Working tree is not clean. Please commit or stash changes first.')
 	}
 
 	// Apply changes
 	const filesToStage: string[] = []
-	const repoUrl = await getGitHubRepoUrl()
 
 	for (const bump of bumps) {
 		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
@@ -220,14 +228,15 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		await commit(commitMsg)
 	}
 
-	// Create tags
+	// Create tags (in parallel)
 	if (options.tag !== false) {
-		for (const bump of bumps) {
+		const tagPromises = bumps.map((bump) => {
 			const tag = formatVersionTag(bump.newVersion)
 			const tagName = packages.length > 1 ? `${bump.package}@${bump.newVersion}` : tag
-			consola.start(`Creating tag ${pc.cyan(tagName)}...`)
-			await createTag(tagName, `Release ${tagName}`)
-		}
+			return createTag(tagName, `Release ${tagName}`)
+		})
+		consola.start(`Creating tag${bumps.length > 1 ? 's' : ''}...`)
+		await Promise.all(tagPromises)
 	}
 
 	// Create GitHub releases (in parallel)
