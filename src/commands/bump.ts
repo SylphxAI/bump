@@ -1,6 +1,6 @@
 import consola from 'consola'
 import pc from 'picocolors'
-import { createReleaseForBump } from '../adapters/github.ts'
+import { createReleasesForBumps } from '../adapters/github.ts'
 import {
 	calculateMonorepoBumps,
 	calculateSingleBump,
@@ -20,6 +20,7 @@ import type { ReleaseContext, VersionBump } from '../types.ts'
 import {
 	commit,
 	createTag,
+	getAllTags,
 	getGitHubRepoUrl,
 	getGitRoot,
 	getLatestTag,
@@ -67,13 +68,21 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 	if (packages.length > 0) {
 		consola.info(`Monorepo detected with ${pc.bold(packages.length)} packages`)
 
-		// For monorepos, get commits since each package's last tag
+		// Pre-fetch all tags once for reuse
+		const allTags = await getAllTags()
+
+		// Process all packages in parallel - get tags and commits concurrently
+		const packageResults = await Promise.all(
+			packages.map(async (pkg) => {
+				const latestTag = await getLatestTagForPackage(pkg.name, allTags)
+				const commits = await getConventionalCommits(latestTag ?? undefined)
+				return { pkg, latestTag, commits }
+			})
+		)
+
+		// Build contexts from parallel results
 		const contexts: MonorepoBumpContext[] = []
-
-		for (const pkg of packages) {
-			const latestTag = await getLatestTagForPackage(pkg.name)
-			const commits = await getConventionalCommits(latestTag ?? undefined)
-
+		for (const { pkg, latestTag, commits } of packageResults) {
 			if (commits.length > 0) {
 				contexts.push({
 					package: pkg,
@@ -221,12 +230,10 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		}
 	}
 
-	// Create GitHub releases
+	// Create GitHub releases (in parallel)
 	if (options.release !== false) {
-		for (const bump of bumps) {
-			consola.start(`Creating GitHub release for ${pc.cyan(bump.package)}...`)
-			await createReleaseForBump(bump, config)
-		}
+		consola.start(`Creating GitHub release${bumps.length > 1 ? 's' : ''}...`)
+		await createReleasesForBumps(bumps, config)
 	}
 
 	consola.success('Release completed!')

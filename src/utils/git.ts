@@ -31,43 +31,42 @@ export async function getCommitFiles(hash: string): Promise<string[]> {
 
 /**
  * Get all commits since a specific ref (tag or commit)
+ * Optimized: Single git command with --name-only instead of N+1 calls
  */
 export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
-	const format = '%H|%s|%b|%an|%ai'
-	const separator = '---COMMIT_SEPARATOR---'
+	// Use a format that includes file names in one command
+	// --name-only adds changed files after each commit
+	const format = '---COMMIT_START---%H|%s|%b|%an|%ai'
 
 	let result: string
 	if (ref) {
-		result = await $`git log ${ref}..HEAD --pretty=format:${format}${separator}`.text()
+		result = await $`git log ${ref}..HEAD --pretty=format:${format} --name-only`.text()
 	} else {
-		// Get all commits if no ref provided
-		result = await $`git log --pretty=format:${format}${separator}`.text()
+		result = await $`git log --pretty=format:${format} --name-only`.text()
 	}
 
 	if (!result.trim()) return []
 
-	const commits = result
-		.split(separator)
-		.filter(Boolean)
-		.map((commit) => {
-			const [hash, message, body, author, date] = commit.trim().split('|')
-			return {
-				hash: hash ?? '',
-				message: message ?? '',
-				body: body ?? '',
-				author: author ?? '',
-				date: date ?? '',
-				files: [] as string[],
-			}
-		})
-		.filter((c) => c.hash)
+	// Parse commits - each starts with ---COMMIT_START---
+	const commitBlocks = result.split('---COMMIT_START---').filter(Boolean)
 
-	// Get files for each commit
-	for (const commit of commits) {
-		commit.files = await getCommitFiles(commit.hash)
-	}
+	return commitBlocks.map((block) => {
+		const lines = block.trim().split('\n')
+		const headerLine = lines[0] ?? ''
+		const [hash, message, body, author, date] = headerLine.split('|')
 
-	return commits
+		// Remaining non-empty lines are file paths
+		const files = lines.slice(1).filter((line) => line.trim() && !line.startsWith('|'))
+
+		return {
+			hash: hash ?? '',
+			message: message ?? '',
+			body: body ?? '',
+			author: author ?? '',
+			date: date ?? '',
+			files,
+		}
+	}).filter((c) => c.hash)
 }
 
 /**
@@ -107,33 +106,46 @@ export async function getLatestTag(pattern?: string): Promise<string | null> {
 	}
 }
 
+// Tag cache for performance - cleared per CLI invocation
+let cachedTags: string[] | null = null
+
 /**
- * Get all tags
+ * Get all tags (cached within session)
  */
 export async function getAllTags(): Promise<string[]> {
+	if (cachedTags !== null) return cachedTags
 	const result = await $`git tag -l`.text()
-	return result.trim().split('\n').filter(Boolean)
+	cachedTags = result.trim().split('\n').filter(Boolean)
+	return cachedTags
+}
+
+/**
+ * Clear tag cache (for testing)
+ */
+export function clearTagCache(): void {
+	cachedTags = null
 }
 
 /**
  * Get all tags for a specific package
  * Supports formats: @scope/pkg@1.0.0, pkg@1.0.0
+ * @param packageName - Package name
+ * @param allTags - Pre-fetched tags (optional, for batch operations)
  */
-export async function getTagsForPackage(packageName: string): Promise<string[]> {
-	const allTags = await getAllTags()
-	// Match both scoped (@scope/pkg@version) and unscoped (pkg@version) formats
-	return allTags.filter((tag) => {
-		// Exact match: @scope/pkg@1.0.0 or pkg@1.0.0
-		if (tag.startsWith(`${packageName}@`)) return true
-		return false
-	})
+export function getTagsForPackage(packageName: string, allTags: string[]): string[] {
+	return allTags.filter((tag) => tag.startsWith(`${packageName}@`))
 }
 
 /**
  * Get the latest tag for a specific package
+ * @param packageName - Package name
+ * @param allTags - Pre-fetched tags (optional, uses cache if not provided)
  */
-export async function getLatestTagForPackage(packageName: string): Promise<string | null> {
-	const tags = await getTagsForPackage(packageName)
+export async function getLatestTagForPackage(
+	packageName: string,
+	allTags?: string[]
+): Promise<string | null> {
+	const tags = getTagsForPackage(packageName, allTags ?? await getAllTags())
 	if (tags.length === 0) return null
 
 	// Sort by version (extract version from tag)

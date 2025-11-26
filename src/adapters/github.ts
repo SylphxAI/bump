@@ -11,6 +11,10 @@ export interface GitHubRelease {
 	prerelease: boolean
 }
 
+// Cache gh CLI availability checks (once per session)
+let ghCliAvailable: boolean | null = null
+let ghAuthenticated: boolean | null = null
+
 /**
  * Create a GitHub release using gh CLI
  */
@@ -38,27 +42,42 @@ export async function createGitHubRelease(release: GitHubRelease): Promise<strin
 }
 
 /**
- * Check if gh CLI is available
+ * Check if gh CLI is available (cached)
  */
 export async function isGhCliAvailable(): Promise<boolean> {
+	if (ghCliAvailable !== null) return ghCliAvailable
 	try {
 		await $`gh --version`.quiet()
-		return true
+		ghCliAvailable = true
 	} catch {
-		return false
+		ghCliAvailable = false
 	}
+	return ghCliAvailable
 }
 
 /**
- * Check if authenticated with GitHub
+ * Check if authenticated with GitHub (cached)
  */
 export async function isGhAuthenticated(): Promise<boolean> {
+	if (ghAuthenticated !== null) return ghAuthenticated
 	try {
 		await $`gh auth status`.quiet()
-		return true
+		ghAuthenticated = true
 	} catch {
-		return false
+		ghAuthenticated = false
 	}
+	return ghAuthenticated
+}
+
+/**
+ * Check gh CLI availability and authentication (combined, cached)
+ */
+export async function checkGhReady(): Promise<{ available: boolean; authenticated: boolean }> {
+	const [available, authenticated] = await Promise.all([
+		isGhCliAvailable(),
+		isGhAuthenticated(),
+	])
+	return { available, authenticated }
 }
 
 /**
@@ -95,6 +114,51 @@ export async function createReleaseForBump(
 		draft: config.github.draft ?? false,
 		prerelease: isPrerelease,
 	})
+}
+
+/**
+ * Create multiple GitHub releases in parallel
+ */
+export async function createReleasesForBumps(
+	bumps: VersionBump[],
+	config: BumpConfig,
+	tagPrefix = 'v'
+): Promise<(string | null)[]> {
+	if (!config.github?.release || bumps.length === 0) return []
+
+	// Check gh CLI once for all releases
+	const { available, authenticated } = await checkGhReady()
+	if (!available) {
+		console.warn('GitHub CLI (gh) not found. Skipping GitHub releases.')
+		return bumps.map(() => null)
+	}
+	if (!authenticated) {
+		console.warn('Not authenticated with GitHub. Skipping GitHub releases.')
+		return bumps.map(() => null)
+	}
+
+	// Create all releases in parallel
+	return Promise.all(
+		bumps.map(async (bump) => {
+			const tag = `${tagPrefix}${bump.newVersion}`
+			const releaseName =
+				config.github?.releaseName?.replace('{version}', bump.newVersion) ?? `v${bump.newVersion}`
+			const body = generateChangelogEntry(bump, config)
+			const isPrerelease = bump.releaseType.startsWith('pre')
+
+			try {
+				return await createGitHubRelease({
+					tag,
+					name: releaseName,
+					body,
+					draft: config.github?.draft ?? false,
+					prerelease: isPrerelease,
+				})
+			} catch {
+				return null
+			}
+		})
+	)
 }
 
 /**

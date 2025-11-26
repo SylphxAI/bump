@@ -15,6 +15,7 @@ import {
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import {
+	getAllTags,
 	getCurrentBranch,
 	getGitHubRepoUrl,
 	getGitRoot,
@@ -140,13 +141,21 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
 	if (packages.length > 0) {
-		// For monorepos, get commits since each package's last tag
+		// Pre-fetch all tags once for reuse
+		const allTags = await getAllTags()
+
+		// Process all packages in parallel
+		const packageResults = await Promise.all(
+			packages.map(async (pkg) => {
+				const latestTag = await getLatestTagForPackage(pkg.name, allTags)
+				const commits = await getConventionalCommits(latestTag ?? undefined)
+				return { pkg, latestTag, commits }
+			})
+		)
+
+		// Build contexts from parallel results
 		const contexts: MonorepoBumpContext[] = []
-
-		for (const pkg of packages) {
-			const latestTag = await getLatestTagForPackage(pkg.name)
-			const commits = await getConventionalCommits(latestTag ?? undefined)
-
+		for (const { pkg, latestTag, commits } of packageResults) {
 			if (commits.length > 0) {
 				contexts.push({
 					package: pkg,
