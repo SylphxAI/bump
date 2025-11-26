@@ -230,6 +230,12 @@ runs:
           fi
         fi
 
+    - name: Install dependencies
+      if: steps.bump.outputs.published == 'true' && inputs.npm-token != ''
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: bun install
+
     - name: Publish to npm
       if: steps.bump.outputs.published == 'true' && inputs.npm-token != ''
       shell: bash
