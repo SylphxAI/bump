@@ -1,20 +1,18 @@
 name: Release
 
 on:
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   release:
-    name: Release
     runs-on: ubuntu-latest
-    # Only run when release PR is merged
-    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'bump/release')
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -26,19 +24,29 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Configure npm
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: Publish to npm
-        run: bun publish --access public
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create GitHub Release
+      - name: Configure git
         run: |
-          VERSION=$(jq -r .version package.json)
-          gh release create "v${VERSION}" \
-            --title "v${VERSION}" \
-            --generate-notes
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create Release PR or Publish
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" == chore\(release\):* ]]; then
+            echo "Release commit detected, publishing..."
+
+            # Configure npm
+            echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+            # Publish
+            bun publish --access public
+
+            # Create GitHub Release
+            VERSION=$(jq -r .version package.json)
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          else
+            echo "Creating/updating release PR..."
+            bun run ./dist/cli.js pr
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
