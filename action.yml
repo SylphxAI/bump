@@ -188,10 +188,25 @@ runs:
                 fi
               fi
 
-              # Create GitHub release
+              # Create GitHub release with changelog content
               if [ "${{ inputs.github-release }}" = "true" ]; then
                 echo "Creating GitHub release..."
-                gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+                # Extract changelog section for this version
+                if [ -f "CHANGELOG.md" ]; then
+                  # Extract content between this version header and next version header
+                  RELEASE_NOTES=$(awk -v ver="$VERSION" '
+                    /^## / { if (found) exit; if ($0 ~ ver) found=1; next }
+                    found { print }
+                  ' CHANGELOG.md)
+
+                  if [ -n "$RELEASE_NOTES" ]; then
+                    echo "$RELEASE_NOTES" | gh release create "v$VERSION" --title "v$VERSION" --notes-file - || true
+                  else
+                    gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+                  fi
+                else
+                  gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+                fi
               fi
 
               echo "published=true" >> $GITHUB_OUTPUT
