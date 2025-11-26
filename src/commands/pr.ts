@@ -256,8 +256,8 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 			// Switch to PR branch and update
 			await $`git fetch origin ${PR_BRANCH}:${PR_BRANCH} 2>/dev/null || true`.quiet()
-			await $`git checkout -B ${PR_BRANCH}`.quiet()
-			await $`git reset --hard origin/${baseBranch}`.quiet()
+			await $`git checkout -B ${PR_BRANCH}`
+			await $`git reset --hard origin/${baseBranch}`
 
 			// Apply version changes
 			for (const bump of bumps) {
@@ -266,15 +266,15 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 
 			// Commit and push
-			await $`git add -A`.quiet()
-			await $`git commit -m ${prTitle} --allow-empty`.quiet()
-			await $`git push -f origin ${PR_BRANCH}`.quiet()
+			await $`git add -A`
+			await $`git commit -m ${prTitle} --allow-empty`
+			await $`git push -f origin ${PR_BRANCH}`
 
 			// Update PR
 			await $`gh pr edit ${existingPr.number} --title ${prTitle} --body ${prBody}`
 
 			// Switch back
-			await $`git checkout ${baseBranch}`.quiet()
+			await $`git checkout ${baseBranch}`
 
 			consola.success(`Updated PR #${existingPr.number}`)
 			consola.info(
@@ -285,7 +285,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			consola.start('Creating release PR...')
 
 			// Create branch
-			await $`git checkout -B ${PR_BRANCH}`.quiet()
+			await $`git checkout -B ${PR_BRANCH}`
 
 			// Apply version changes
 			for (const bump of bumps) {
@@ -294,23 +294,23 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 
 			// Commit and push
-			await $`git add -A`.quiet()
-			await $`git commit -m ${prTitle}`.quiet()
-			await $`git push -u origin ${PR_BRANCH}`.quiet()
+			await $`git add -A`
+			await $`git commit -m ${prTitle}`
+			await $`git push -u origin ${PR_BRANCH}`
 
 			// Create PR
 			const prUrl =
 				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch}`.text()
 
 			// Switch back
-			await $`git checkout ${baseBranch}`.quiet()
+			await $`git checkout ${baseBranch}`
 
 			consola.success('Created release PR')
 			consola.info(prUrl.trim())
 		}
 	} catch (error) {
 		// Make sure we switch back to original branch
-		await $`git checkout ${baseBranch}`.quiet()
+		await $`git checkout ${baseBranch}`.quiet().nothrow()
 		throw error
 	}
 }
