@@ -71,13 +71,37 @@ export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
 }
 
 /**
+ * Check if a tag is a valid semver version tag
+ * Matches: v1.0.0, v1.0.0-alpha.0, 1.0.0, etc.
+ */
+function isSemverTag(tag: string): boolean {
+	// Remove 'v' prefix if present
+	const version = tag.startsWith('v') ? tag.slice(1) : tag
+	// Basic semver pattern: major.minor.patch with optional prerelease
+	return /^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)
+}
+
+/**
  * Get the latest tag matching a pattern
+ * Filters to only include valid semver tags (e.g., v1.0.0, not v0)
  */
 export async function getLatestTag(pattern?: string): Promise<string | null> {
 	try {
-		const args = pattern ? ['--match', pattern] : []
-		const result = await $`git describe --tags --abbrev=0 ${args}`.text()
-		return result.trim() || null
+		// Get all tags sorted by version (newest first)
+		const result = await $`git tag -l --sort=-v:refname`.text()
+		const allTags = result.trim().split('\n').filter(Boolean)
+
+		// Filter to semver tags only
+		const semverTags = allTags.filter(isSemverTag)
+
+		// If pattern provided, filter by pattern
+		if (pattern) {
+			const regex = new RegExp(pattern.replace(/\*/g, '.*'))
+			const matchingTags = semverTags.filter(tag => regex.test(tag))
+			return matchingTags[0] ?? null
+		}
+
+		return semverTags[0] ?? null
 	} catch {
 		return null
 	}
