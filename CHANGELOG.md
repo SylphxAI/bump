@@ -1,5 +1,15 @@
 # @sylphx/bump
 
+## 0.6.1 (2025-11-26)
+
+### 🐛 Bug Fixes
+
+- **pr:** replace npm version with direct package.json update ([f0db4af](https://github.com/SylphxAI/bump/commit/f0db4afb4e0dae6a2b264c7da2eec6087751b0a7))
+
+### ⚡️ Performance
+
+- additional caching and parallelization ([5f42f25](https://github.com/SylphxAI/bump/commit/5f42f25350923982cc4050eac11b9bcdc86d9283))
+
 ## 0.6.0 (2025-11-26)
 
 ### ✨ Features
