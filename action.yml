@@ -110,7 +110,11 @@ runs:
         IS_RELEASE_COMMIT=false
 
         if [ "$MODE" = "auto" ]; then
-          if [[ "$COMMIT_MSG" == chore\(release\):* ]]; then
+          # workflow_dispatch has no commit message - default to publish
+          if [ -z "$COMMIT_MSG" ]; then
+            MODE="publish"
+            echo "Auto mode: manual trigger, publishing..."
+          elif [[ "$COMMIT_MSG" == chore\(release\):* ]]; then
             MODE="publish"
             IS_RELEASE_COMMIT=true
             echo "Auto mode: detected release commit, publishing directly..."
