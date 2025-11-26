@@ -51,3 +51,4 @@ export { runStatus, type StatusOptions } from './commands/status.ts'
 
 // Adapters
 export { createGitHubRelease, createReleaseForBump, type GitHubRelease } from './adapters/github.ts'
+// test
