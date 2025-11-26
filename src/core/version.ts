@@ -16,7 +16,9 @@ export function incrementVersion(
 	releaseType: ReleaseType,
 	preid?: string
 ): string {
-	const result = semver.inc(currentVersion, releaseType, preid)
+	const result = preid
+		? semver.inc(currentVersion, releaseType, preid)
+		: semver.inc(currentVersion, releaseType)
 	if (!result) {
 		throw new Error(
 			`Failed to increment version ${currentVersion} with release type ${releaseType}`

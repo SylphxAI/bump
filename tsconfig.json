@@ -1,6 +1,9 @@
 {
 	"extends": "@sylphx/tsconfig",
 	"compilerOptions": {
-		"noEmit": true
-	}
+		"noEmit": true,
+		"allowImportingTsExtensions": true,
+		"verbatimModuleSyntax": true
+	},
+	"exclude": ["node_modules", "dist", "bunup.config.ts"]
 }

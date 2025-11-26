@@ -55,7 +55,7 @@ const bump = defineCommand({
 			run: async ({ args }) => {
 				await runInit({
 					format: args.format as 'ts' | 'json',
-					force: args.force,
+					force: Boolean(args.force),
 				})
 			},
 		}),
