@@ -1,0 +1,6 @@
+{
+	"extends": "@sylphx/tsconfig",
+	"compilerOptions": {
+		"noEmit": true
+	}
+}

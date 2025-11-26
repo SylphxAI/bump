@@ -1,0 +1,155 @@
+import consola from 'consola'
+import pc from 'picocolors'
+import { createReleaseForBump } from '../adapters/github.ts'
+import {
+	calculateBumps,
+	calculateSingleBump,
+	discoverPackages,
+	formatVersionTag,
+	generateChangelogEntry,
+	getConventionalCommits,
+	getSinglePackage,
+	isMonorepo,
+	loadConfig,
+	updateChangelog,
+	updateDependencyVersions,
+	updatePackageVersion,
+} from '../core/index.ts'
+import type { ReleaseContext, VersionBump } from '../types.ts'
+import { commit, createTag, getLatestTag, isWorkingTreeClean, stageFiles } from '../utils/git.ts'
+
+export interface BumpOptions {
+	cwd?: string
+	dryRun?: boolean
+	tag?: boolean
+	commit?: boolean
+	changelog?: boolean
+	push?: boolean
+	release?: boolean
+}
+
+export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext> {
+	const cwd = options.cwd ?? process.cwd()
+	const config = await loadConfig(cwd)
+
+	consola.start('Analyzing commits...')
+
+	// Get commits since last tag
+	const latestTag = await getLatestTag()
+	const commits = await getConventionalCommits(latestTag ?? undefined)
+
+	if (commits.length === 0) {
+		consola.info('No new commits since last release')
+		return {
+			config,
+			packages: [],
+			commits: [],
+			bumps: [],
+			dryRun: options.dryRun ?? false,
+		}
+	}
+
+	consola.info(`Found ${pc.bold(commits.length)} commits since ${latestTag ?? 'beginning'}`)
+
+	// Determine packages and bumps
+	let bumps: VersionBump[] = []
+	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
+
+	if (packages.length > 0) {
+		consola.info(`Monorepo detected with ${pc.bold(packages.length)} packages`)
+		bumps = calculateBumps(packages, commits, config)
+	} else {
+		const pkg = getSinglePackage(cwd)
+		if (!pkg) {
+			consola.error('No package.json found')
+			return { config, packages: [], commits, bumps: [], dryRun: options.dryRun ?? false }
+		}
+		const bump = calculateSingleBump(pkg, commits, config)
+		if (bump) bumps = [bump]
+	}
+
+	if (bumps.length === 0) {
+		consola.info('No version bumps needed (commits do not trigger version changes)')
+		return { config, packages, commits, bumps, dryRun: options.dryRun ?? false }
+	}
+
+	// Display planned changes
+	consola.box(
+		bumps
+			.map(
+				(b) =>
+					`${pc.cyan(b.package)}: ${pc.dim(b.currentVersion)} → ${pc.green(b.newVersion)} (${b.releaseType})`
+			)
+			.join('\n')
+	)
+
+	if (options.dryRun) {
+		consola.info('Dry run mode - no changes will be made')
+		return { config, packages, commits, bumps, dryRun: true }
+	}
+
+	// Check working tree
+	if (options.commit !== false && !(await isWorkingTreeClean())) {
+		consola.warn('Working tree is not clean. Please commit or stash changes first.')
+	}
+
+	// Apply changes
+	const filesToStage: string[] = []
+
+	for (const bump of bumps) {
+		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
+
+		// Update package version
+		consola.start(`Updating ${pc.cyan(bump.package)} to ${pc.green(bump.newVersion)}...`)
+		updatePackageVersion(pkgPath, bump.newVersion)
+		filesToStage.push(`${pkgPath}/package.json`)
+
+		// Update changelog
+		if (options.changelog !== false) {
+			const entry = generateChangelogEntry(bump, config)
+			updateChangelog(pkgPath, entry, config)
+			filesToStage.push(`${pkgPath}/${config.changelog?.file ?? 'CHANGELOG.md'}`)
+		}
+	}
+
+	// Update dependency versions in monorepo
+	if (packages.length > 0 && config.packages?.dependencyUpdates !== 'none') {
+		const versionUpdates = new Map(bumps.map((b) => [b.package, b.newVersion]))
+		updateDependencyVersions(cwd, packages, versionUpdates)
+	}
+
+	// Commit changes
+	if (options.commit !== false) {
+		consola.start('Committing changes...')
+		await stageFiles(filesToStage)
+
+		const commitMsg =
+			bumps.length === 1
+				? `chore(release): ${bumps[0]?.package}@${bumps[0]?.newVersion}`
+				: `chore(release): bump versions\n\n${bumps.map((b) => `- ${b.package}@${b.newVersion}`).join('\n')}`
+
+		await commit(commitMsg)
+	}
+
+	// Create tags
+	if (options.tag !== false) {
+		for (const bump of bumps) {
+			const tag = formatVersionTag(bump.newVersion)
+			const tagName = packages.length > 1 ? `${bump.package}@${bump.newVersion}` : tag
+			consola.start(`Creating tag ${pc.cyan(tagName)}...`)
+			await createTag(tagName, `Release ${tagName}`)
+		}
+	}
+
+	// Create GitHub releases
+	if (options.release !== false) {
+		for (const bump of bumps) {
+			consola.start(`Creating GitHub release for ${pc.cyan(bump.package)}...`)
+			await createReleaseForBump(bump, config)
+		}
+	}
+
+	consola.success('Release completed!')
+
+	return { config, packages, commits, bumps, dryRun: false }
+}
