@@ -285,11 +285,26 @@ bunx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
 | `mode` | `auto`, `release`, `version`, or `pr` | `auto` |
 | `github-token` | GitHub token | required |
 | `npm-token` | NPM token for publishing | - |
+| `slack-webhook` | Slack webhook URL for notifications | - |
 | `dry-run` | Preview without publishing | `false` |
 | `base-branch` | Base branch for PR mode | `main` |
 | `tag` | Create git tags | `true` |
 | `changelog` | Update CHANGELOG.md | `true` |
 | `github-release` | Create GitHub release | `true` |
+
+## Slack Notifications
+
+Get notified in Slack when releases are published:
+
+```yaml
+- uses: SylphxAI/bump@v0
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    npm-token: ${{ secrets.NPM_TOKEN }}
+    slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
+```
+
+Notifications include package name, version, and link to the release.
 
 ## Permissions
 

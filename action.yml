@@ -57,6 +57,9 @@ inputs:
     description: 'Path to bump CLI (for dogfooding with local build)'
     required: false
     default: 'bump'
+  slack-webhook:
+    description: 'Slack webhook URL for release notifications'
+    required: false
 
 outputs:
   published:
@@ -299,3 +302,36 @@ runs:
         fi
 
         rm -f ~/.npmrc
+
+    - name: Send Slack notification
+      if: steps.bump.outputs.published == 'true' && inputs.slack-webhook != ''
+      shell: bash
+      env:
+        SLACK_WEBHOOK: ${{ inputs.slack-webhook }}
+        VERSION: ${{ steps.bump.outputs.version }}
+        VERSIONS: ${{ steps.bump.outputs.versions }}
+      run: |
+        REPO="${{ github.repository }}"
+        REPO_URL="https://github.com/$REPO"
+
+        # Build message based on single package or monorepo
+        if [ -n "$VERSION" ]; then
+          # Single package
+          PKG_NAME=$(jq -r .name package.json)
+          MESSAGE="📦 *${PKG_NAME}* \`v${VERSION}\` published\n<${REPO_URL}/releases/tag/v${VERSION}|View Release>"
+        elif [ -n "$VERSIONS" ] && [ "$VERSIONS" != "{}" ]; then
+          # Monorepo - list all packages
+          MESSAGE="📦 *Packages published*\n"
+          for pkg in $(echo "$VERSIONS" | jq -r 'keys[]'); do
+            ver=$(echo "$VERSIONS" | jq -r --arg p "$pkg" '.[$p]')
+            MESSAGE="${MESSAGE}• ${pkg}@${ver}\n"
+          done
+          MESSAGE="${MESSAGE}<${REPO_URL}|View Repository>"
+        else
+          MESSAGE="📦 Release published from *${REPO}*\n<${REPO_URL}|View Repository>"
+        fi
+
+        # Send to Slack
+        curl -s -X POST "$SLACK_WEBHOOK" \
+          -H "Content-Type: application/json" \
+          -d "{\"text\": \"${MESSAGE}\"}"
