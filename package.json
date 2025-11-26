@@ -1,61 +1,61 @@
 {
-	"name": "@sylphx/bump",
-	"version": "0.6.0",
-	"description": "Modern changelog and release management for Bun",
-	"type": "module",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		}
-	},
-	"bin": {
-		"bump": "./dist/cli.js"
-	},
-	"files": [
-		"dist"
-	],
-	"scripts": {
-		"build": "bunup && bun build src/cli.ts --outfile dist/cli.js --target bun",
-		"dev": "bunup --watch",
-		"lint": "biome check .",
-		"format": "biome format --write .",
-		"test": "bun test",
-		"typecheck": "tsc --noEmit",
-		"prepublishOnly": "bun run build"
-	},
-	"dependencies": {
-		"citty": "^0.1.6",
-		"consola": "^3.4.2",
-		"defu": "^6.1.4",
-		"picocolors": "^1.1.1",
-		"semver": "^7.6.3"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^1.9.4",
-		"@sylphx/biome-config": "^0.1.0",
-		"@sylphx/tsconfig": "^0.1.0",
-		"@types/bun": "^1.2.10",
-		"@types/semver": "^7.5.8",
-		"bunup": "^0.9.2",
-		"typescript": "^5.8.3"
-	},
-	"keywords": [
-		"changelog",
-		"release",
-		"version",
-		"semver",
-		"bun",
-		"monorepo"
-	],
-	"author": "SylphxAI",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/SylphxAI/bump.git"
-	},
-	"bugs": {
-		"url": "https://github.com/SylphxAI/bump/issues"
-	},
-	"homepage": "https://github.com/SylphxAI/bump#readme"
+  "name": "@sylphx/bump",
+  "version": "0.6.1",
+  "description": "Modern changelog and release management for Bun",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "bump": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bunup && bun build src/cli.ts --outfile dist/cli.js --target bun",
+    "dev": "bunup --watch",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "citty": "^0.1.6",
+    "consola": "^3.4.2",
+    "defu": "^6.1.4",
+    "picocolors": "^1.1.1",
+    "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@sylphx/biome-config": "^0.1.0",
+    "@sylphx/tsconfig": "^0.1.0",
+    "@types/bun": "^1.2.10",
+    "@types/semver": "^7.5.8",
+    "bunup": "^0.9.2",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [
+    "changelog",
+    "release",
+    "version",
+    "semver",
+    "bun",
+    "monorepo"
+  ],
+  "author": "SylphxAI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SylphxAI/bump.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SylphxAI/bump/issues"
+  },
+  "homepage": "https://github.com/SylphxAI/bump#readme"
 }
