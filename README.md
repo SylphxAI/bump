@@ -155,6 +155,48 @@ bunx bump --dry-run
 bunx bump
 ```
 
+## Monorepo Support
+
+Bump automatically detects monorepos (via `workspaces` in package.json) and handles them intelligently:
+
+### How It Works
+
+1. **File-based detection**: Commits are mapped to packages by analyzing which files changed
+2. **Per-package versioning**: Each package gets its own version based on its relevant commits
+3. **Per-package tags**: Tags follow `@scope/pkg@1.0.0` format for independent tracking
+4. **Smart PR body**: Shows all packages being released in a summary table
+
+```
+┌────────────────────────────────────────────────────────────┐
+│  PR #42: chore(release): @scope/foo@1.2.0, @scope/bar@2.0.0│
+├────────────────────────────────────────────────────────────┤
+│  ## 🚀 Release                                             │
+│                                                            │
+│  | Package     | Current | New   | Type  |                 │
+│  |-------------|---------|-------|-------|                 │
+│  | @scope/foo  | 1.1.0   | 1.2.0 | minor |                 │
+│  | @scope/bar  | 1.9.0   | 2.0.0 | major |                 │
+│                                                            │
+│  ### 📦 @scope/foo `1.1.0` → `1.2.0`                       │
+│  - feat: add new feature (abc1234)                         │
+│                                                            │
+│  ### 📦 @scope/bar `1.9.0` → `2.0.0` ⚠️                    │
+│  - feat!: breaking change (def5678)                        │
+└────────────────────────────────────────────────────────────┘
+```
+
+### Monorepo Setup
+
+Same workflow as single packages - just make sure you have `workspaces` in your root package.json:
+
+```json
+{
+  "workspaces": ["packages/*"]
+}
+```
+
+No additional configuration needed!
+
 ## Configuration (Optional)
 
 Create `bump.config.ts` for custom settings:
