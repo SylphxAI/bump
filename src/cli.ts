@@ -94,7 +94,13 @@ const bump = defineCommand({
 			},
 		}),
 	},
-	run: async ({ args }) => {
+	run: async ({ args, rawArgs }) => {
+		// Don't run if a subcommand was invoked
+		const subcommands = ['init', 'status', 'pr']
+		if (rawArgs.some((arg) => subcommands.includes(arg))) {
+			return
+		}
+
 		try {
 			await runBump({
 				dryRun: args['dry-run'],
