@@ -1,0 +1,123 @@
+name: 'Bump Release'
+description: 'Modern changelog and release management for Bun'
+author: 'SylphxAI'
+
+branding:
+  icon: 'package'
+  color: 'orange'
+
+inputs:
+  mode:
+    description: 'Release mode: "release" to publish, "version" to only bump versions'
+    required: false
+    default: 'release'
+  dry-run:
+    description: 'Preview changes without applying them'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub token for creating releases'
+    required: false
+    default: ${{ github.token }}
+  npm-token:
+    description: 'NPM token for publishing packages'
+    required: false
+  publish:
+    description: 'Publish to npm after versioning'
+    required: false
+    default: 'true'
+  tag:
+    description: 'Create git tags'
+    required: false
+    default: 'true'
+  changelog:
+    description: 'Update changelog'
+    required: false
+    default: 'true'
+  github-release:
+    description: 'Create GitHub release'
+    required: false
+    default: 'true'
+  commit-message:
+    description: 'Custom commit message for version bump'
+    required: false
+  working-directory:
+    description: 'Working directory for the action'
+    required: false
+    default: '.'
+
+outputs:
+  published:
+    description: 'Whether packages were published'
+    value: ${{ steps.bump.outputs.published }}
+  version:
+    description: 'The new version (for single package repos)'
+    value: ${{ steps.bump.outputs.version }}
+  versions:
+    description: 'JSON object of package versions (for monorepos)'
+    value: ${{ steps.bump.outputs.versions }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Install bump CLI
+      shell: bash
+      run: bun add -g @sylphx/bump
+
+    - name: Configure npm authentication
+      if: inputs.npm-token != ''
+      shell: bash
+      run: |
+        echo "//registry.npmjs.org/:_authToken=${{ inputs.npm-token }}" > ~/.npmrc
+
+    - name: Run bump
+      id: bump
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        NPM_TOKEN: ${{ inputs.npm-token }}
+      run: |
+        args=""
+
+        if [ "${{ inputs.dry-run }}" = "true" ]; then
+          args="$args --dry-run"
+        fi
+
+        if [ "${{ inputs.tag }}" = "false" ]; then
+          args="$args --no-tag"
+        fi
+
+        if [ "${{ inputs.changelog }}" = "false" ]; then
+          args="$args --no-changelog"
+        fi
+
+        if [ "${{ inputs.github-release }}" = "false" ]; then
+          args="$args --no-release"
+        fi
+
+        echo "Running: bump $args"
+        bump $args
+
+        # Set outputs
+        if [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ]; then
+          echo "published=true" >> $GITHUB_OUTPUT
+        else
+          echo "published=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Publish to npm
+      if: inputs.publish == 'true' && inputs.dry-run == 'false' && inputs.npm-token != ''
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NPM_TOKEN: ${{ inputs.npm-token }}
+      run: |
+        if [ -f "package.json" ]; then
+          bun publish --access public || true
+        fi

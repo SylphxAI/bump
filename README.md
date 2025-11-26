@@ -144,6 +144,74 @@ All packages share the same version. A change to any package bumps all.
 
 All packages share the same version, but only packages with changes are included in the release.
 
+## GitHub Action
+
+Use bump in your CI/CD pipeline:
+
+```yaml
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for commit history
+
+      - uses: SylphxAI/bump@v0.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
+```
+
+### Action Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `mode` | Release mode: `release` or `version` | `release` |
+| `dry-run` | Preview changes without applying | `false` |
+| `github-token` | GitHub token for releases | `${{ github.token }}` |
+| `npm-token` | NPM token for publishing | - |
+| `publish` | Publish to npm | `true` |
+| `tag` | Create git tags | `true` |
+| `changelog` | Update changelog | `true` |
+| `github-release` | Create GitHub release | `true` |
+| `working-directory` | Working directory | `.` |
+
+### Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `published` | Whether packages were published |
+| `version` | New version (single package) |
+| `versions` | JSON of versions (monorepo) |
+
+### Examples
+
+**Dry run on PRs:**
+
+```yaml
+- uses: SylphxAI/bump@v0.1.0
+  with:
+    dry-run: ${{ github.event_name == 'pull_request' }}
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Version only (no publish):**
+
+```yaml
+- uses: SylphxAI/bump@v0.1.0
+  with:
+    mode: version
+    publish: false
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Programmatic API
 
 ```typescript
