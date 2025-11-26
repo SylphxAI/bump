@@ -40,12 +40,21 @@ export interface BumpOptions {
 	preid?: string
 	/** Create a pre-release version */
 	prerelease?: boolean
+	/** Enable verbose/debug output */
+	verbose?: boolean
 }
 
 export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext> {
 	const cwd = options.cwd ?? process.cwd()
 	const config = await loadConfig(cwd)
 	const gitRoot = await getGitRoot()
+
+	if (options.verbose) {
+		consola.debug('Options:', JSON.stringify(options, null, 2))
+		consola.debug('Config:', JSON.stringify(config, null, 2))
+		consola.debug('Git root:', gitRoot)
+		consola.debug('Working directory:', cwd)
+	}
 
 	consola.start('Analyzing commits...')
 
@@ -117,11 +126,23 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 		consola.info(`Found ${pc.bold(commits.length)} commits since ${latestTag ?? 'beginning'}`)
 
+		if (options.verbose) {
+			consola.debug('Commits:')
+			for (const c of commits) {
+				consola.debug(`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`)
+			}
+		}
+
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
 			return { config, packages: [], commits, bumps: [], dryRun: options.dryRun ?? false }
 		}
+
+		if (options.verbose) {
+			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
+		}
+
 		const bump = calculateSingleBump(pkg, commits, config, { preid: options.preid, prerelease: options.prerelease })
 		if (bump) bumps = [bump]
 	}

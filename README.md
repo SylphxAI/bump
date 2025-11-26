@@ -158,11 +158,18 @@ bunx bump --dry-run
 # Release
 bunx bump
 
-# Pre-release (alpha/beta/rc)
+# Pre-release (shorthand)
+bunx bump --alpha              # 1.0.0 → 1.1.0-alpha.0
+bunx bump --beta               # 1.0.0 → 1.1.0-beta.0
+bunx bump --rc                 # 1.0.0 → 1.1.0-rc.0
+
+# Pre-release (explicit)
 bunx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
-bunx bump --preid beta         # 1.0.0 → 1.1.0-beta.0
-bunx bump --preid rc           # 1.0.0 → 1.1.0-rc.0
 bunx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
+
+# Debug mode
+bunx bump --verbose            # Show detailed debug output
+bunx bump -v --dry-run         # Debug + preview
 ```
 
 ## Monorepo Support

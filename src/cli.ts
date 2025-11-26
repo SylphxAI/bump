@@ -19,6 +19,11 @@ const bump = defineCommand({
 			description: 'Preview changes without applying them',
 			alias: 'd',
 		},
+		verbose: {
+			type: 'boolean',
+			description: 'Enable verbose/debug output',
+			alias: 'v',
+		},
 		'no-tag': {
 			type: 'boolean',
 			description: 'Skip creating git tags',
@@ -42,6 +47,18 @@ const bump = defineCommand({
 		prerelease: {
 			type: 'boolean',
 			description: 'Create a pre-release version',
+		},
+		alpha: {
+			type: 'boolean',
+			description: 'Create alpha pre-release (shorthand for --preid alpha)',
+		},
+		beta: {
+			type: 'boolean',
+			description: 'Create beta pre-release (shorthand for --preid beta)',
+		},
+		rc: {
+			type: 'boolean',
+			description: 'Create release candidate (shorthand for --preid rc)',
 		},
 	},
 	subCommands: {
@@ -110,6 +127,17 @@ const bump = defineCommand({
 			return
 		}
 
+		// Enable verbose logging
+		if (args.verbose) {
+			consola.level = 4 // debug level
+		}
+
+		// Resolve preid from shorthand flags
+		let preid = args.preid as string | undefined
+		if (args.alpha) preid = 'alpha'
+		if (args.beta) preid = 'beta'
+		if (args.rc) preid = 'rc'
+
 		try {
 			await runBump({
 				dryRun: args['dry-run'],
@@ -117,8 +145,9 @@ const bump = defineCommand({
 				commit: !args['no-commit'],
 				changelog: !args['no-changelog'],
 				release: !args['no-release'],
-				preid: args.preid as string | undefined,
-				prerelease: args.prerelease,
+				preid,
+				prerelease: args.prerelease || !!preid,
+				verbose: args.verbose,
 			})
 		} catch (error) {
 			if (error instanceof BumpError) {
