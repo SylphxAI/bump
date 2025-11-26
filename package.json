@@ -33,6 +33,8 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",
+		"@changesets/changelog-github": "^0.5.1",
+		"@changesets/cli": "^2.29.7",
 		"@sylphx/biome-config": "^0.1.0",
 		"@sylphx/tsconfig": "^0.1.0",
 		"@types/bun": "^1.2.10",
