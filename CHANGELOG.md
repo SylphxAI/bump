@@ -1,5 +1,19 @@
 # @sylphx/bump
 
+## 0.6.0 (2025-11-26)
+
+### ✨ Features
+
+- **action:** add slack webhook notification support ([4b03ea5](https://github.com/SylphxAI/bump/commit/4b03ea511fd2a4597f8db50b8ec2186855478ca1))
+
+### 🐛 Bug Fixes
+
+- **action:** use CHANGELOG.md content for GitHub release notes ([dad3fdb](https://github.com/SylphxAI/bump/commit/dad3fdb7ba93204faf35a932693e78c8c3f1dc34))
+
+### ⏪ Reverts
+
+- remove slack from bump (not its responsibility) ([483495b](https://github.com/SylphxAI/bump/commit/483495b328bc4f0948a8001bf246ce76192273c9))
+
 ## 0.5.0 (2025-11-26)
 
 ### ✨ Features
