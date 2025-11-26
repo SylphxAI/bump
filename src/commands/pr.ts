@@ -284,7 +284,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Create new PR
 			consola.start('Creating release PR...')
 
-			// Create branch
+			// Create branch (force to overwrite if exists locally)
 			await $`git checkout -B ${PR_BRANCH}`
 
 			// Apply version changes
@@ -293,20 +293,19 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				await $`cd ${pkgPath} && npm version ${bump.newVersion} --no-git-tag-version`.quiet()
 			}
 
-			// Commit and push
+			// Commit and push (force push in case branch exists on remote)
 			await $`git add -A`
 			await $`git commit -m ${prTitle}`
-			await $`git push -u origin ${PR_BRANCH}`
+			await $`git push -f -u origin ${PR_BRANCH}`
 
-			// Create PR
-			const prUrl =
-				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch}`.text()
+			// Create PR (or get existing if branch already has PR)
+			const prResult = await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch} 2>&1 || gh pr view ${PR_BRANCH} --json url -q .url`.text()
 
 			// Switch back
 			await $`git checkout ${baseBranch}`
 
 			consola.success('Created release PR')
-			consola.info(prUrl.trim())
+			consola.info(prResult.trim())
 		}
 	} catch (error) {
 		// Make sure we switch back to original branch
