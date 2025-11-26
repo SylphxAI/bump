@@ -107,10 +107,13 @@ runs:
       run: |
         # Determine effective mode
         MODE="${{ inputs.mode }}"
+        IS_RELEASE_COMMIT=false
+
         if [ "$MODE" = "auto" ]; then
           if [[ "$COMMIT_MSG" == chore\(release\):* ]]; then
-            MODE="release"
-            echo "Auto mode: detected release commit, publishing..."
+            MODE="publish"
+            IS_RELEASE_COMMIT=true
+            echo "Auto mode: detected release commit, publishing directly..."
           else
             MODE="pr"
             echo "Auto mode: normal commit, creating/updating PR..."
@@ -118,7 +121,7 @@ runs:
         fi
 
         if [ "$MODE" = "pr" ]; then
-          # PR mode
+          # PR mode - create/update release PR
           args="pr --base ${{ inputs.base-branch }}"
           if [ "${{ inputs.dry-run }}" = "true" ]; then
             args="$args --dry-run"
@@ -126,8 +129,39 @@ runs:
           echo "Running: $BUMP_CLI $args"
           $BUMP_CLI $args
           echo "published=false" >> $GITHUB_OUTPUT
+
+        elif [ "$MODE" = "publish" ] || [ "$IS_RELEASE_COMMIT" = "true" ]; then
+          # Publish mode - just publish current version, don't bump
+          echo "Publishing current version from package.json..."
+          VERSION=$(jq -r .version package.json)
+          PACKAGE_NAME=$(jq -r .name package.json)
+          echo "Package: $PACKAGE_NAME@$VERSION"
+
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            echo "Dry run - would publish $PACKAGE_NAME@$VERSION"
+            echo "published=false" >> $GITHUB_OUTPUT
+          else
+            # Create tag if not exists
+            if [ "${{ inputs.tag }}" = "true" ]; then
+              TAG="v$VERSION"
+              if ! git tag -l | grep -q "^$TAG$"; then
+                echo "Creating tag $TAG..."
+                git tag -a "$TAG" -m "Release $TAG"
+                git push origin "$TAG"
+              fi
+            fi
+
+            # Create GitHub release
+            if [ "${{ inputs.github-release }}" = "true" ]; then
+              echo "Creating GitHub release..."
+              gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+            fi
+
+            echo "published=true" >> $GITHUB_OUTPUT
+          fi
+
         else
-          # Release/version mode
+          # Release/version mode - run bump command
           args=""
 
           if [ "${{ inputs.dry-run }}" = "true" ]; then
