@@ -8,9 +8,13 @@ branding:
 
 inputs:
   mode:
-    description: 'Release mode: "release" to publish, "version" to only bump versions'
+    description: 'Mode: "release" to publish, "version" to only bump, "pr" to create/update release PR'
     required: false
     default: 'release'
+  base-branch:
+    description: 'Base branch for PR mode (default: main)'
+    required: false
+    default: 'main'
   dry-run:
     description: 'Preview changes without applying them'
     required: false
@@ -75,6 +79,13 @@ runs:
       run: |
         echo "//registry.npmjs.org/:_authToken=${{ inputs.npm-token }}" > ~/.npmrc
 
+    - name: Configure git
+      if: inputs.mode == 'pr'
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
     - name: Run bump
       id: bump
       shell: bash
@@ -83,36 +94,48 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
       run: |
-        args=""
-
-        if [ "${{ inputs.dry-run }}" = "true" ]; then
-          args="$args --dry-run"
-        fi
-
-        if [ "${{ inputs.tag }}" = "false" ]; then
-          args="$args --no-tag"
-        fi
-
-        if [ "${{ inputs.changelog }}" = "false" ]; then
-          args="$args --no-changelog"
-        fi
-
-        if [ "${{ inputs.github-release }}" = "false" ]; then
-          args="$args --no-release"
-        fi
-
-        echo "Running: bump $args"
-        bump $args
-
-        # Set outputs
-        if [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ]; then
-          echo "published=true" >> $GITHUB_OUTPUT
-        else
+        if [ "${{ inputs.mode }}" = "pr" ]; then
+          # PR mode
+          args="pr --base ${{ inputs.base-branch }}"
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            args="$args --dry-run"
+          fi
+          echo "Running: bump $args"
+          bump $args
           echo "published=false" >> $GITHUB_OUTPUT
+        else
+          # Release/version mode
+          args=""
+
+          if [ "${{ inputs.dry-run }}" = "true" ]; then
+            args="$args --dry-run"
+          fi
+
+          if [ "${{ inputs.tag }}" = "false" ]; then
+            args="$args --no-tag"
+          fi
+
+          if [ "${{ inputs.changelog }}" = "false" ]; then
+            args="$args --no-changelog"
+          fi
+
+          if [ "${{ inputs.github-release }}" = "false" ]; then
+            args="$args --no-release"
+          fi
+
+          echo "Running: bump $args"
+          bump $args
+
+          # Set outputs
+          if [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ]; then
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
+          fi
         fi
 
     - name: Publish to npm
-      if: inputs.publish == 'true' && inputs.dry-run == 'false' && inputs.npm-token != ''
+      if: inputs.mode != 'pr' && inputs.publish == 'true' && inputs.dry-run == 'false' && inputs.npm-token != ''
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:

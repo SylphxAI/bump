@@ -155,3 +155,16 @@ export function parseGitHubRepo(url: string): { owner: string; repo: string } | 
 
 	return null
 }
+
+/**
+ * Get GitHub repo URL (https://github.com/owner/repo)
+ */
+export async function getGitHubRepoUrl(): Promise<string | null> {
+	const remoteUrl = await getRemoteUrl()
+	if (!remoteUrl) return null
+
+	const repo = parseGitHubRepo(remoteUrl)
+	if (!repo) return null
+
+	return `https://github.com/${repo.owner}/${repo.repo}`
+}

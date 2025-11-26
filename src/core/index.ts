@@ -17,7 +17,12 @@ export {
 	formatVersionTag,
 	parseVersionFromTag,
 } from './version.ts'
-export { generateChangelogEntry, updateChangelog, generateFullChangelog } from './changelog.ts'
+export {
+	generateChangelogEntry,
+	updateChangelog,
+	generateFullChangelog,
+	type ChangelogOptions,
+} from './changelog.ts'
 export {
 	discoverPackages,
 	getSinglePackage,

@@ -16,7 +16,14 @@ import {
 	updatePackageVersion,
 } from '../core/index.ts'
 import type { ReleaseContext, VersionBump } from '../types.ts'
-import { commit, createTag, getLatestTag, isWorkingTreeClean, stageFiles } from '../utils/git.ts'
+import {
+	commit,
+	createTag,
+	getGitHubRepoUrl,
+	getLatestTag,
+	isWorkingTreeClean,
+	stageFiles,
+} from '../utils/git.ts'
 
 export interface BumpOptions {
 	cwd?: string
@@ -95,6 +102,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 	// Apply changes
 	const filesToStage: string[] = []
+	const repoUrl = await getGitHubRepoUrl()
 
 	for (const bump of bumps) {
 		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
@@ -106,7 +114,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 		// Update changelog
 		if (options.changelog !== false) {
-			const entry = generateChangelogEntry(bump, config)
+			const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
 			updateChangelog(pkgPath, entry, config)
 			filesToStage.push(`${pkgPath}/${config.changelog?.file ?? 'CHANGELOG.md'}`)
 		}

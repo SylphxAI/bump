@@ -220,18 +220,17 @@ on:
 jobs:
   release-pr:
     runs-on: ubuntu-latest
+    # Skip if commit is from release itself
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun add -g @sylphx/bump
-
-      - run: bump pr
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: SylphxAI/bump@v0
+        with:
+          mode: pr
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 This creates a PR like:
@@ -262,7 +261,8 @@ This creates a PR like:
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `mode` | Release mode: `release` or `version` | `release` |
+| `mode` | `release`, `version`, or `pr` | `release` |
+| `base-branch` | Base branch for PR mode | `main` |
 | `dry-run` | Preview changes without applying | `false` |
 | `github-token` | GitHub token for releases | `${{ github.token }}` |
 | `npm-token` | NPM token for publishing | - |

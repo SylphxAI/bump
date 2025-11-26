@@ -17,12 +17,33 @@ const TYPE_LABELS: Record<string, string> = {
 	revert: '⏪ Reverts',
 }
 
+export interface ChangelogOptions {
+	/** GitHub repo URL for commit links (e.g., https://github.com/owner/repo) */
+	repoUrl?: string
+}
+
+/**
+ * Format commit link
+ */
+function formatCommitLink(hash: string, repoUrl?: string): string {
+	const shortHash = hash.slice(0, 7)
+	if (repoUrl) {
+		return `([${shortHash}](${repoUrl}/commit/${hash}))`
+	}
+	return `(${shortHash})`
+}
+
 /**
  * Generate changelog entry for a version bump
  */
-export function generateChangelogEntry(bump: VersionBump, config: BumpConfig): string {
+export function generateChangelogEntry(
+	bump: VersionBump,
+	config: BumpConfig,
+	options?: ChangelogOptions
+): string {
 	const { newVersion, commits } = bump
 	const date = new Date().toISOString().split('T')[0]
+	const repoUrl = options?.repoUrl
 	// Format is reserved for future use (different changelog formats)
 	const _format = config.changelog?.format ?? 'github'
 
@@ -69,7 +90,8 @@ export function generateChangelogEntry(bump: VersionBump, config: BumpConfig): s
 			for (const commit of typeCommits) {
 				const scope = commit.scope ? `**${commit.scope}:** ` : ''
 				const breaking = commit.breaking ? '💥 ' : ''
-				lines.push(`- ${breaking}${scope}${commit.subject}`)
+				const link = formatCommitLink(commit.hash, repoUrl)
+				lines.push(`- ${breaking}${scope}${commit.subject} ${link}`)
 			}
 			lines.push('')
 		}
@@ -89,7 +111,8 @@ export function generateChangelogEntry(bump: VersionBump, config: BumpConfig): s
 
 			for (const commit of scopeCommits) {
 				const breaking = commit.breaking ? '💥 ' : ''
-				lines.push(`- ${breaking}${commit.subject}`)
+				const link = formatCommitLink(commit.hash, repoUrl)
+				lines.push(`- ${breaking}${commit.subject} ${link}`)
 			}
 			lines.push('')
 		}
@@ -98,7 +121,8 @@ export function generateChangelogEntry(bump: VersionBump, config: BumpConfig): s
 		for (const commit of commits) {
 			const scope = commit.scope ? `**${commit.scope}:** ` : ''
 			const breaking = commit.breaking ? '💥 ' : ''
-			lines.push(`- ${breaking}${scope}${commit.subject}`)
+			const link = formatCommitLink(commit.hash, repoUrl)
+			lines.push(`- ${breaking}${scope}${commit.subject} ${link}`)
 		}
 		lines.push('')
 	}
@@ -110,7 +134,8 @@ export function generateChangelogEntry(bump: VersionBump, config: BumpConfig): s
 		lines.push('')
 		for (const commit of breakingCommits) {
 			const scope = commit.scope ? `**${commit.scope}:** ` : ''
-			lines.push(`- ${scope}${commit.subject}`)
+			const link = formatCommitLink(commit.hash, repoUrl)
+			lines.push(`- ${scope}${commit.subject} ${link}`)
 			if (commit.body) {
 				const breakingNote = commit.body.match(/BREAKING[ -]CHANGE:\s*(.+?)(?:\n\n|$)/s)
 				if (breakingNote) {

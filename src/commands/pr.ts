@@ -12,7 +12,7 @@ import {
 	loadConfig,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
-import { getCurrentBranch, getLatestTag } from '../utils/git.ts'
+import { getCurrentBranch, getGitHubRepoUrl, getLatestTag } from '../utils/git.ts'
 
 export interface PrOptions {
 	cwd?: string
@@ -28,7 +28,8 @@ const PR_TITLE_PREFIX = 'chore(release):'
  */
 function generatePrBody(
 	bumps: VersionBump[],
-	config: ReturnType<typeof import('../core/config.ts').getDefaultConfig>
+	config: ReturnType<typeof import('../core/config.ts').getDefaultConfig>,
+	repoUrl?: string
 ): string {
 	const lines: string[] = []
 
@@ -57,7 +58,7 @@ function generatePrBody(
 			lines.push('')
 		}
 
-		const changelog = generateChangelogEntry(bump, config)
+		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
 		lines.push(changelog)
 	}
 
@@ -141,9 +142,10 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	}
 
 	// Generate PR content
+	const repoUrl = await getGitHubRepoUrl()
 	const version = bumps.length === 1 ? bumps[0]?.newVersion : 'packages'
 	const prTitle = `${PR_TITLE_PREFIX} ${version}`
-	const prBody = generatePrBody(bumps, config)
+	const prBody = generatePrBody(bumps, config, repoUrl ?? undefined)
 
 	consola.box(
 		bumps
