@@ -1,5 +1,19 @@
 # @sylphx/bump
 
+## 0.5.0 (2025-11-26)
+
+### ✨ Features
+
+- **cli:** add --alpha, --beta, --rc flags and verbose mode ([53fb5a2](https://github.com/SylphxAI/bump/commit/53fb5a2da45449f167eaea530424e9e549b5f964))
+- add config-based prerelease support ([a3157c6](https://github.com/SylphxAI/bump/commit/a3157c66df211d02ee6c2279c7c8b8891fb173de))
+- add CHANGELOG.md updates, pre-release support, and better error handling ([ad382d3](https://github.com/SylphxAI/bump/commit/ad382d3a24fe24082e2ec7317bb3cc7b2774d746))
+
+### 🐛 Bug Fixes
+
+- **git:** filter non-semver tags in getLatestTag ([ff8c7f6](https://github.com/SylphxAI/bump/commit/ff8c7f6a9b264dc41f433f8a2566963f79074873))
+- **action:** install dependencies before publish ([18ec304](https://github.com/SylphxAI/bump/commit/18ec3041925323020783aaf6fd1a91921c4f928f))
+- **action:** only publish when published output is true ([978fc7a](https://github.com/SylphxAI/bump/commit/978fc7a001377b8d2de5f68e5eeb637eb61989a1))
+
 ## 0.2.0
 
 ### Minor Changes
