@@ -11,6 +11,7 @@ import {
 	isMonorepo,
 	loadConfig,
 	type MonorepoBumpContext,
+	updateChangelog,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import {
@@ -259,10 +260,14 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git checkout -B ${PR_BRANCH}`
 			await $`git reset --hard origin/${baseBranch}`
 
-			// Apply version changes
+			// Apply version changes and update changelogs
 			for (const bump of bumps) {
 				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
 				await $`cd ${pkgPath} && npm version ${bump.newVersion} --no-git-tag-version`.quiet()
+
+				// Update CHANGELOG.md
+				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+				updateChangelog(pkgPath, entry, config)
 			}
 
 			// Commit and push
@@ -287,10 +292,14 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Create branch (force to overwrite if exists locally)
 			await $`git checkout -B ${PR_BRANCH}`
 
-			// Apply version changes
+			// Apply version changes and update changelogs
 			for (const bump of bumps) {
 				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
 				await $`cd ${pkgPath} && npm version ${bump.newVersion} --no-git-tag-version`.quiet()
+
+				// Update CHANGELOG.md
+				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+				updateChangelog(pkgPath, entry, config)
 			}
 
 			// Commit and push (force push in case branch exists on remote)

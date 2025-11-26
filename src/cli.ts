@@ -5,6 +5,7 @@ import { runBump } from './commands/bump.ts'
 import { runInit } from './commands/init.ts'
 import { runPr } from './commands/pr.ts'
 import { runStatus } from './commands/status.ts'
+import { BumpError, formatError } from './utils/errors.ts'
 
 const bump = defineCommand({
 	meta: {
@@ -33,6 +34,14 @@ const bump = defineCommand({
 		'no-release': {
 			type: 'boolean',
 			description: 'Skip creating GitHub release',
+		},
+		preid: {
+			type: 'string',
+			description: 'Pre-release identifier (alpha, beta, rc)',
+		},
+		prerelease: {
+			type: 'boolean',
+			description: 'Create a pre-release version',
 		},
 	},
 	subCommands: {
@@ -108,9 +117,15 @@ const bump = defineCommand({
 				commit: !args['no-commit'],
 				changelog: !args['no-changelog'],
 				release: !args['no-release'],
+				preid: args.preid as string | undefined,
+				prerelease: args.prerelease,
 			})
 		} catch (error) {
-			consola.error(error instanceof Error ? error.message : 'Unknown error')
+			if (error instanceof BumpError) {
+				consola.error(formatError(error))
+			} else {
+				consola.error(error instanceof Error ? error.message : 'Unknown error')
+			}
 			process.exit(1)
 		}
 	},

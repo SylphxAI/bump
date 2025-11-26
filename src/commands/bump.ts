@@ -36,6 +36,10 @@ export interface BumpOptions {
 	changelog?: boolean
 	push?: boolean
 	release?: boolean
+	/** Pre-release identifier (alpha, beta, rc) */
+	preid?: string
+	/** Create a pre-release version */
+	prerelease?: boolean
 }
 
 export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext> {
@@ -93,7 +97,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
+		bumps = calculateMonorepoBumps(contexts, config, { gitRoot, preid: options.preid, prerelease: options.prerelease })
 	} else {
 		// Single package mode
 		const latestTag = await getLatestTag()
@@ -118,7 +122,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			consola.error('No package.json found')
 			return { config, packages: [], commits, bumps: [], dryRun: options.dryRun ?? false }
 		}
-		const bump = calculateSingleBump(pkg, commits, config)
+		const bump = calculateSingleBump(pkg, commits, config, { preid: options.preid, prerelease: options.prerelease })
 		if (bump) bumps = [bump]
 	}
 

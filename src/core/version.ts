@@ -11,6 +11,10 @@ import { determineReleaseType, filterCommitsForPackage } from './commits.ts'
 export interface CalculateBumpsOptions {
 	/** Git root directory for resolving relative paths */
 	gitRoot?: string
+	/** Pre-release identifier (alpha, beta, rc) */
+	preid?: string
+	/** Create a pre-release version */
+	prerelease?: boolean
 }
 
 export interface MonorepoBumpContext {
@@ -137,15 +141,33 @@ export function calculateBumps(
 export function calculateSingleBump(
 	pkg: PackageInfo,
 	commits: ConventionalCommit[],
-	config: BumpConfig
+	config: BumpConfig,
+	options?: CalculateBumpsOptions
 ): VersionBump | null {
-	const releaseType = determineReleaseType(commits, config)
+	let releaseType = determineReleaseType(commits, config)
 	if (!releaseType) return null
+
+	const preid = options?.preid
+	const prerelease = options?.prerelease
+
+	// Convert to pre-release type if requested
+	if (prerelease || preid) {
+		const preReleaseMap: Record<ReleaseType, ReleaseType> = {
+			major: 'premajor',
+			minor: 'preminor',
+			patch: 'prepatch',
+			premajor: 'premajor',
+			preminor: 'preminor',
+			prepatch: 'prepatch',
+			prerelease: 'prerelease',
+		}
+		releaseType = preReleaseMap[releaseType] ?? releaseType
+	}
 
 	return {
 		package: pkg.name,
 		currentVersion: pkg.version,
-		newVersion: incrementVersion(pkg.version, releaseType),
+		newVersion: incrementVersion(pkg.version, releaseType, preid),
 		releaseType,
 		commits,
 	}
@@ -162,6 +184,8 @@ export function calculateMonorepoBumps(
 ): VersionBump[] {
 	const bumps: VersionBump[] = []
 	const gitRoot = options?.gitRoot
+	const preid = options?.preid
+	const prerelease = options?.prerelease
 
 	for (const ctx of contexts) {
 		if (ctx.package.private) continue
@@ -174,13 +198,27 @@ export function calculateMonorepoBumps(
 			gitRoot
 		)
 
-		const releaseType = determineReleaseType(relevantCommits, config)
+		let releaseType = determineReleaseType(relevantCommits, config)
 
 		if (releaseType) {
+			// Convert to pre-release type if requested
+			if (prerelease || preid) {
+				const preReleaseMap: Record<ReleaseType, ReleaseType> = {
+					major: 'premajor',
+					minor: 'preminor',
+					patch: 'prepatch',
+					premajor: 'premajor',
+					preminor: 'preminor',
+					prepatch: 'prepatch',
+					prerelease: 'prerelease',
+				}
+				releaseType = preReleaseMap[releaseType] ?? releaseType
+			}
+
 			bumps.push({
 				package: ctx.package.name,
 				currentVersion: ctx.package.version,
-				newVersion: incrementVersion(ctx.package.version, releaseType),
+				newVersion: incrementVersion(ctx.package.version, releaseType, preid),
 				releaseType,
 				commits: relevantCommits,
 			})

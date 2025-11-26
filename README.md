@@ -33,6 +33,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -153,6 +157,12 @@ bunx bump --dry-run
 
 # Release
 bunx bump
+
+# Pre-release (alpha/beta/rc)
+bunx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
+bunx bump --preid beta         # 1.0.0 → 1.1.0-beta.0
+bunx bump --preid rc           # 1.0.0 → 1.1.0-rc.0
+bunx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
 ```
 
 ## Monorepo Support
@@ -215,6 +225,18 @@ export default defineConfig({
       improvement: 'minor',
     },
   },
+
+  // Changelog options
+  changelog: {
+    file: 'CHANGELOG.md',
+    groupBy: 'type', // or 'scope' or 'none'
+  },
+
+  // Publishing options
+  publish: {
+    access: 'public',
+    tag: 'latest', // or 'next', 'beta', etc.
+  },
 })
 ```
 
@@ -226,6 +248,20 @@ export default defineConfig({
 | `github-token` | GitHub token | required |
 | `npm-token` | NPM token for publishing | - |
 | `dry-run` | Preview without publishing | `false` |
+| `base-branch` | Base branch for PR mode | `main` |
+| `tag` | Create git tags | `true` |
+| `changelog` | Update CHANGELOG.md | `true` |
+| `github-release` | Create GitHub release | `true` |
+
+## Permissions
+
+The workflow requires these permissions:
+
+```yaml
+permissions:
+  contents: write      # For creating tags and releases
+  pull-requests: write # For creating/updating release PRs
+```
 
 ## License
 

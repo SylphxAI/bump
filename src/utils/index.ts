@@ -14,3 +14,12 @@ export {
 	getRemoteUrl,
 	parseGitHubRepo,
 } from './git.ts'
+export {
+	BumpError,
+	GitError,
+	ConfigError,
+	PackageError,
+	GitHubError,
+	PublishError,
+	formatError,
+} from './errors.ts'
