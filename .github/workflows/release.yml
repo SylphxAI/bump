@@ -28,7 +28,7 @@ jobs:
       - name: Create Release PR or Publish
         uses: ./
         with:
-          mode: ${{ startsWith(github.event.head_commit.message, 'chore(release):') && 'release' || 'pr' }}
+          # mode: auto (default) - creates PR on normal commits, publishes on release commits
           skip-install: 'true'
           cli-path: 'bun run ./dist/cli.js'
           github-token: ${{ secrets.GITHUB_TOKEN }}

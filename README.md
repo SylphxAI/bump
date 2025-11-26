@@ -205,23 +205,21 @@ jobs:
 
 Then click **Actions → Release → Run workflow** when you want to release.
 
-### 3. Release PR Mode
+### 3. Release PR Mode (Recommended)
 
-Automatically maintain a release PR that you merge when ready:
+Single workflow that automatically creates PR or publishes:
 
 ```yaml
-# .github/workflows/release-pr.yml
-name: Release PR
+# .github/workflows/release.yml
+name: Release
 
 on:
   push:
     branches: [main]
 
 jobs:
-  release-pr:
+  release:
     runs-on: ubuntu-latest
-    # Skip if commit is from release itself
-    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -229,9 +227,13 @@ jobs:
 
       - uses: SylphxAI/bump@v0
         with:
-          mode: pr
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          npm-token: ${{ secrets.NPM_TOKEN }}
 ```
+
+That's it! The action automatically:
+- Creates/updates release PR on normal commits
+- Publishes to npm when release PR is merged
 
 This creates a PR like:
 
@@ -261,7 +263,7 @@ This creates a PR like:
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `mode` | `release`, `version`, or `pr` | `release` |
+| `mode` | `auto`, `release`, `version`, or `pr` | `auto` |
 | `base-branch` | Base branch for PR mode | `main` |
 | `dry-run` | Preview changes without applying | `false` |
 | `github-token` | GitHub token for releases | `${{ github.token }}` |

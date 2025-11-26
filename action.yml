@@ -8,9 +8,9 @@ branding:
 
 inputs:
   mode:
-    description: 'Mode: "release" to publish, "version" to only bump, "pr" to create/update release PR'
+    description: 'Mode: "auto" (default), "release", "version", or "pr". Auto mode creates PR on normal commits, publishes on release commits.'
     required: false
-    default: 'release'
+    default: 'auto'
   base-branch:
     description: 'Base branch for PR mode (default: main)'
     required: false
@@ -89,7 +89,7 @@ runs:
         echo "//registry.npmjs.org/:_authToken=${{ inputs.npm-token }}" > ~/.npmrc
 
     - name: Configure git
-      if: inputs.mode == 'pr'
+      if: inputs.mode == 'pr' || inputs.mode == 'auto'
       shell: bash
       run: |
         git config user.name "github-actions[bot]"
@@ -103,8 +103,21 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
         BUMP_CLI: ${{ inputs.cli-path }}
+        COMMIT_MSG: ${{ github.event.head_commit.message }}
       run: |
-        if [ "${{ inputs.mode }}" = "pr" ]; then
+        # Determine effective mode
+        MODE="${{ inputs.mode }}"
+        if [ "$MODE" = "auto" ]; then
+          if [[ "$COMMIT_MSG" == chore\(release\):* ]]; then
+            MODE="release"
+            echo "Auto mode: detected release commit, publishing..."
+          else
+            MODE="pr"
+            echo "Auto mode: normal commit, creating/updating PR..."
+          fi
+        fi
+
+        if [ "$MODE" = "pr" ]; then
           # PR mode
           args="pr --base ${{ inputs.base-branch }}"
           if [ "${{ inputs.dry-run }}" = "true" ]; then
