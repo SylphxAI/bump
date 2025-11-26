@@ -147,8 +147,9 @@ export function calculateSingleBump(
 	let releaseType = determineReleaseType(commits, config)
 	if (!releaseType) return null
 
-	const preid = options?.preid
-	const prerelease = options?.prerelease
+	// Check for pre-release: CLI option takes precedence, then config
+	const preid = options?.preid ?? (config.prerelease && config.prerelease !== false ? config.prerelease : undefined)
+	const prerelease = options?.prerelease ?? !!preid
 
 	// Convert to pre-release type if requested
 	if (prerelease || preid) {
@@ -184,8 +185,10 @@ export function calculateMonorepoBumps(
 ): VersionBump[] {
 	const bumps: VersionBump[] = []
 	const gitRoot = options?.gitRoot
-	const preid = options?.preid
-	const prerelease = options?.prerelease
+
+	// Check for pre-release: CLI option takes precedence, then config
+	const preid = options?.preid ?? (config.prerelease && config.prerelease !== false ? config.prerelease : undefined)
+	const prerelease = options?.prerelease ?? !!preid
 
 	for (const ctx of contexts) {
 		if (ctx.package.private) continue

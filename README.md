@@ -215,6 +215,10 @@ Create `bump.config.ts` for custom settings:
 import { defineConfig } from '@sylphx/bump'
 
 export default defineConfig({
+  // Pre-release mode: set to 'alpha', 'beta', or 'rc'
+  // Remove or set to false for stable releases
+  prerelease: 'beta',  // → 1.1.0-beta.0
+
   // Customize commit types
   conventional: {
     types: {
@@ -238,6 +242,33 @@ export default defineConfig({
     tag: 'latest', // or 'next', 'beta', etc.
   },
 })
+```
+
+## Pre-releases
+
+To publish pre-release versions (alpha, beta, rc):
+
+### Option 1: Config-based (recommended)
+
+```typescript
+// bump.config.ts
+export default defineConfig({
+  prerelease: 'beta',  // All releases will be beta until removed
+})
+```
+
+Workflow:
+1. Add `prerelease: 'beta'` to config
+2. Push commits → PR created for `v1.1.0-beta.0`
+3. Merge → publish beta
+4. Remove `prerelease` from config when ready for stable
+5. Push → PR created for `v1.1.0`
+
+### Option 2: CLI flags
+
+```bash
+bunx bump --preid beta      # 1.0.0 → 1.1.0-beta.0
+bunx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
 ```
 
 ## Action Inputs

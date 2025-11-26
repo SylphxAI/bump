@@ -13,6 +13,9 @@ export interface BumpConfig {
 	/** Version strategy for monorepo */
 	versioning?: VersionStrategy
 
+	/** Pre-release identifier (alpha, beta, rc) - set to create pre-release versions */
+	prerelease?: string | false
+
 	/** Conventional commits configuration */
 	conventional?: {
 		/** Preset to use */
