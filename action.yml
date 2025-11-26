@@ -49,6 +49,14 @@ inputs:
     description: 'Working directory for the action'
     required: false
     default: '.'
+  skip-install:
+    description: 'Skip installing bump CLI (for dogfooding with local build)'
+    required: false
+    default: 'false'
+  cli-path:
+    description: 'Path to bump CLI (for dogfooding with local build)'
+    required: false
+    default: 'bump'
 
 outputs:
   published:
@@ -70,6 +78,7 @@ runs:
         bun-version: latest
 
     - name: Install bump CLI
+      if: inputs.skip-install != 'true'
       shell: bash
       run: bun add -g @sylphx/bump
 
@@ -93,6 +102,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
+        BUMP_CLI: ${{ inputs.cli-path }}
       run: |
         if [ "${{ inputs.mode }}" = "pr" ]; then
           # PR mode
@@ -100,8 +110,8 @@ runs:
           if [ "${{ inputs.dry-run }}" = "true" ]; then
             args="$args --dry-run"
           fi
-          echo "Running: bump $args"
-          bump $args
+          echo "Running: $BUMP_CLI $args"
+          $BUMP_CLI $args
           echo "published=false" >> $GITHUB_OUTPUT
         else
           # Release/version mode
@@ -123,8 +133,8 @@ runs:
             args="$args --no-release"
           fi
 
-          echo "Running: bump $args"
-          bump $args
+          echo "Running: $BUMP_CLI $args"
+          $BUMP_CLI $args
 
           # Set outputs
           if [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ]; then
