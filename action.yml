@@ -203,5 +203,8 @@ runs:
         NPM_TOKEN: ${{ inputs.npm-token }}
       run: |
         if [ -f "package.json" ]; then
-          bun publish --access public || true
+          # Ensure npmrc is in working directory
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          bun publish --access public
+          rm -f .npmrc
         fi
