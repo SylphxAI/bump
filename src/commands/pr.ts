@@ -2,7 +2,7 @@ import { $ } from 'bun'
 import consola from 'consola'
 import pc from 'picocolors'
 import {
-	calculateBumps,
+	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
 	generateChangelogEntry,
@@ -10,9 +10,16 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
+	type MonorepoBumpContext,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
-import { getCurrentBranch, getGitHubRepoUrl, getLatestTag } from '../utils/git.ts'
+import {
+	getCurrentBranch,
+	getGitHubRepoUrl,
+	getGitRoot,
+	getLatestTag,
+	getLatestTagForPackage,
+} from '../utils/git.ts'
 
 export interface PrOptions {
 	cwd?: string
@@ -40,12 +47,33 @@ function generatePrBody(
 		const bump = bumps[0]
 		lines.push(`This PR will release **${bump.package}** version **${bump.newVersion}**`)
 	} else {
+		// Monorepo summary table
 		lines.push('This PR will release the following packages:')
 		lines.push('')
+		lines.push('| Package | Current | New | Type |')
+		lines.push('|---------|---------|-----|------|')
 		for (const bump of bumps) {
-			lines.push(`- **${bump.package}**: ${bump.currentVersion} → ${bump.newVersion}`)
+			lines.push(
+				`| \`${bump.package}\` | ${bump.currentVersion} | **${bump.newVersion}** | ${bump.releaseType} |`
+			)
 		}
 	}
+
+	// Statistics
+	const totalCommits = bumps.reduce((acc, b) => acc + b.commits.length, 0)
+	const breakingChanges = bumps.reduce((acc, b) => acc + b.commits.filter((c) => c.breaking).length, 0)
+
+	lines.push('')
+	lines.push('<details>')
+	lines.push('<summary>📊 Statistics</summary>')
+	lines.push('')
+	lines.push(`- **Packages:** ${bumps.length}`)
+	lines.push(`- **Total commits:** ${totalCommits}`)
+	if (breakingChanges > 0) {
+		lines.push(`- **Breaking changes:** ${breakingChanges} ⚠️`)
+	}
+	lines.push('')
+	lines.push('</details>')
 
 	lines.push('')
 	lines.push('---')
@@ -54,12 +82,15 @@ function generatePrBody(
 	// Add changelog preview for each bump
 	for (const bump of bumps) {
 		if (bumps.length > 1) {
-			lines.push(`### 📦 ${bump.package}`)
+			const hasBreaking = bump.commits.some((c) => c.breaking)
+			const breakingBadge = hasBreaking ? ' ⚠️' : ''
+			lines.push(`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`)
 			lines.push('')
 		}
 
 		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
 		lines.push(changelog)
+		lines.push('')
 	}
 
 	lines.push('---')
@@ -99,34 +130,65 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	const cwd = options.cwd ?? process.cwd()
 	const config = await loadConfig(cwd)
 	const baseBranch = options.baseBranch ?? config.baseBranch ?? 'main'
+	const gitRoot = await getGitRoot()
 
 	consola.start('Analyzing commits for release PR...')
-
-	// Get commits since last tag
-	const latestTag = await getLatestTag()
-	const commits = await getConventionalCommits(latestTag ?? undefined)
-
-	if (commits.length === 0) {
-		consola.info('No new commits since last release')
-
-		// Close existing PR if no changes
-		const existingPr = await findReleasePr()
-		if (existingPr) {
-			consola.info('Closing existing release PR (no changes)')
-			if (!options.dryRun) {
-				await $`gh pr close ${existingPr.number} --delete-branch`.quiet()
-			}
-		}
-		return
-	}
 
 	// Calculate bumps
 	let bumps: VersionBump[] = []
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
 	if (packages.length > 0) {
-		bumps = calculateBumps(packages, commits, config)
+		// For monorepos, get commits since each package's last tag
+		const contexts: MonorepoBumpContext[] = []
+
+		for (const pkg of packages) {
+			const latestTag = await getLatestTagForPackage(pkg.name)
+			const commits = await getConventionalCommits(latestTag ?? undefined)
+
+			if (commits.length > 0) {
+				contexts.push({
+					package: pkg,
+					commits,
+					latestTag,
+				})
+			}
+		}
+
+		if (contexts.length === 0) {
+			consola.info('No new commits since last releases')
+
+			// Close existing PR if no changes
+			const existingPr = await findReleasePr()
+			if (existingPr) {
+				consola.info('Closing existing release PR (no changes)')
+				if (!options.dryRun) {
+					await $`gh pr close ${existingPr.number} --delete-branch`.quiet()
+				}
+			}
+			return
+		}
+
+		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
 	} else {
+		// Single package mode
+		const latestTag = await getLatestTag()
+		const commits = await getConventionalCommits(latestTag ?? undefined)
+
+		if (commits.length === 0) {
+			consola.info('No new commits since last release')
+
+			// Close existing PR if no changes
+			const existingPr = await findReleasePr()
+			if (existingPr) {
+				consola.info('Closing existing release PR (no changes)')
+				if (!options.dryRun) {
+					await $`gh pr close ${existingPr.number} --delete-branch`.quiet()
+				}
+			}
+			return
+		}
+
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
@@ -143,8 +205,21 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 	// Generate PR content
 	const repoUrl = await getGitHubRepoUrl()
-	const version = bumps.length === 1 ? bumps[0]?.newVersion : 'packages'
-	const prTitle = `${PR_TITLE_PREFIX} ${version}`
+
+	// Generate descriptive PR title
+	let prTitle: string
+	if (bumps.length === 1 && bumps[0]) {
+		prTitle = `${PR_TITLE_PREFIX} ${bumps[0].package}@${bumps[0].newVersion}`
+	} else {
+		// For monorepo, list all packages being released
+		const pkgVersions = bumps.map((b) => `${b.package}@${b.newVersion}`)
+		if (pkgVersions.length <= 3) {
+			prTitle = `${PR_TITLE_PREFIX} ${pkgVersions.join(', ')}`
+		} else {
+			prTitle = `${PR_TITLE_PREFIX} ${bumps.length} packages`
+		}
+	}
+
 	const prBody = generatePrBody(bumps, config, repoUrl ?? undefined)
 
 	consola.box(

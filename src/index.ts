@@ -20,6 +20,7 @@ export {
 	groupCommitsByType,
 	groupCommitsByScope,
 	filterCommitsForPackage,
+	fileMatchesPackage,
 } from './core/commits.ts'
 
 export {
@@ -29,8 +30,11 @@ export {
 	getHighestVersion,
 	calculateBumps,
 	calculateSingleBump,
+	calculateMonorepoBumps,
 	formatVersionTag,
 	parseVersionFromTag,
+	type CalculateBumpsOptions,
+	type MonorepoBumpContext,
 } from './core/version.ts'
 
 export { generateChangelogEntry, updateChangelog, generateFullChangelog } from './core/changelog.ts'

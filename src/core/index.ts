@@ -6,6 +6,7 @@ export {
 	groupCommitsByType,
 	groupCommitsByScope,
 	filterCommitsForPackage,
+	fileMatchesPackage,
 } from './commits.ts'
 export {
 	incrementVersion,
@@ -14,8 +15,11 @@ export {
 	getHighestVersion,
 	calculateBumps,
 	calculateSingleBump,
+	calculateMonorepoBumps,
 	formatVersionTag,
 	parseVersionFromTag,
+	type CalculateBumpsOptions,
+	type MonorepoBumpContext,
 } from './version.ts'
 export {
 	generateChangelogEntry,

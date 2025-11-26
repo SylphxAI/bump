@@ -136,32 +136,67 @@ runs:
 
         elif [ "$MODE" = "publish" ] || [ "$IS_RELEASE_COMMIT" = "true" ]; then
           # Publish mode - just publish current version, don't bump
-          echo "Publishing current version from package.json..."
-          VERSION=$(jq -r .version package.json)
-          PACKAGE_NAME=$(jq -r .name package.json)
-          echo "Package: $PACKAGE_NAME@$VERSION"
+          # Check if this is a monorepo
+          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null)
 
-          if [ "${{ inputs.dry-run }}" = "true" ]; then
-            echo "Dry run - would publish $PACKAGE_NAME@$VERSION"
-            echo "published=false" >> $GITHUB_OUTPUT
+          if [ -n "$WORKSPACES" ]; then
+            # Monorepo mode - collect all package versions
+            echo "Monorepo publish mode..."
+            VERSIONS_JSON="{}"
+
+            for pattern in $WORKSPACES; do
+              for pkg_dir in $pattern; do
+                if [ -f "$pkg_dir/package.json" ]; then
+                  PKG_NAME=$(jq -r '.name' "$pkg_dir/package.json")
+                  PKG_VERSION=$(jq -r '.version' "$pkg_dir/package.json")
+                  PKG_PRIVATE=$(jq -r '.private // false' "$pkg_dir/package.json")
+
+                  if [ "$PKG_PRIVATE" = "false" ]; then
+                    echo "Package: $PKG_NAME@$PKG_VERSION"
+                    VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq --arg name "$PKG_NAME" --arg ver "$PKG_VERSION" '. + {($name): $ver}')
+                  fi
+                fi
+              done
+            done
+
+            echo "versions=$VERSIONS_JSON" >> $GITHUB_OUTPUT
+
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "Dry run - would publish packages"
+              echo "published=false" >> $GITHUB_OUTPUT
+            else
+              echo "published=true" >> $GITHUB_OUTPUT
+            fi
           else
-            # Create tag if not exists
-            if [ "${{ inputs.tag }}" = "true" ]; then
-              TAG="v$VERSION"
-              if ! git tag -l | grep -q "^$TAG$"; then
-                echo "Creating tag $TAG..."
-                git tag -a "$TAG" -m "Release $TAG"
-                git push origin "$TAG"
+            # Single package mode
+            echo "Publishing current version from package.json..."
+            VERSION=$(jq -r .version package.json)
+            PACKAGE_NAME=$(jq -r .name package.json)
+            echo "Package: $PACKAGE_NAME@$VERSION"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+            if [ "${{ inputs.dry-run }}" = "true" ]; then
+              echo "Dry run - would publish $PACKAGE_NAME@$VERSION"
+              echo "published=false" >> $GITHUB_OUTPUT
+            else
+              # Create tag if not exists
+              if [ "${{ inputs.tag }}" = "true" ]; then
+                TAG="v$VERSION"
+                if ! git tag -l | grep -q "^$TAG$"; then
+                  echo "Creating tag $TAG..."
+                  git tag -a "$TAG" -m "Release $TAG"
+                  git push origin "$TAG"
+                fi
               fi
-            fi
 
-            # Create GitHub release
-            if [ "${{ inputs.github-release }}" = "true" ]; then
-              echo "Creating GitHub release..."
-              gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
-            fi
+              # Create GitHub release
+              if [ "${{ inputs.github-release }}" = "true" ]; then
+                echo "Creating GitHub release..."
+                gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+              fi
 
-            echo "published=true" >> $GITHUB_OUTPUT
+              echo "published=true" >> $GITHUB_OUTPUT
+            fi
           fi
 
         else
@@ -202,9 +237,59 @@ runs:
       env:
         NPM_TOKEN: ${{ inputs.npm-token }}
       run: |
+        # Setup npmrc
+        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+        # Check if this is a monorepo (has workspaces)
         if [ -f "package.json" ]; then
-          # Ensure npmrc is in working directory
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          bun publish --access public
-          rm -f .npmrc
+          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null)
+
+          if [ -n "$WORKSPACES" ]; then
+            echo "Monorepo detected, publishing workspace packages..."
+
+            # Find and publish each workspace package
+            for pattern in $WORKSPACES; do
+              # Handle glob patterns like "packages/*"
+              for pkg_dir in $pattern; do
+                if [ -f "$pkg_dir/package.json" ]; then
+                  PKG_NAME=$(jq -r '.name' "$pkg_dir/package.json")
+                  PKG_VERSION=$(jq -r '.version' "$pkg_dir/package.json")
+                  PKG_PRIVATE=$(jq -r '.private // false' "$pkg_dir/package.json")
+
+                  if [ "$PKG_PRIVATE" = "false" ]; then
+                    echo "Publishing $PKG_NAME@$PKG_VERSION..."
+                    cd "$pkg_dir"
+                    echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+                    bun publish --access public || true
+                    rm -f .npmrc
+                    cd - > /dev/null
+
+                    # Create per-package tag if not exists
+                    if [ "${{ inputs.tag }}" = "true" ]; then
+                      TAG="${PKG_NAME}@${PKG_VERSION}"
+                      if ! git tag -l | grep -q "^${TAG}$"; then
+                        echo "Creating tag $TAG..."
+                        git tag -a "$TAG" -m "Release $TAG"
+                      fi
+                    fi
+                  else
+                    echo "Skipping private package: $PKG_NAME"
+                  fi
+                fi
+              done
+            done
+
+            # Push all tags at once
+            if [ "${{ inputs.tag }}" = "true" ]; then
+              git push --tags || true
+            fi
+          else
+            # Single package mode
+            echo "Publishing single package..."
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+            bun publish --access public
+            rm -f .npmrc
+          fi
         fi
+
+        rm -f ~/.npmrc

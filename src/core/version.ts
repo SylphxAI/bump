@@ -8,6 +8,20 @@ import type {
 } from '../types.ts'
 import { determineReleaseType, filterCommitsForPackage } from './commits.ts'
 
+export interface CalculateBumpsOptions {
+	/** Git root directory for resolving relative paths */
+	gitRoot?: string
+}
+
+export interface MonorepoBumpContext {
+	/** Package info */
+	package: PackageInfo
+	/** All commits since the package's last tag */
+	commits: ConventionalCommit[]
+	/** Package's latest tag (e.g., @scope/pkg@1.0.0) */
+	latestTag: string | null
+}
+
 /**
  * Increment version based on release type
  */
@@ -59,17 +73,19 @@ export function getHighestVersion(versions: string[]): string | null {
 export function calculateBumps(
 	packages: PackageInfo[],
 	commits: ConventionalCommit[],
-	config: BumpConfig
+	config: BumpConfig,
+	options?: CalculateBumpsOptions
 ): VersionBump[] {
 	const bumps: VersionBump[] = []
 	const strategy = config.versioning ?? 'independent'
+	const gitRoot = options?.gitRoot
 
 	if (strategy === 'independent') {
 		// Each package can have its own version bump based on relevant commits
 		for (const pkg of packages) {
 			if (pkg.private) continue
 
-			const relevantCommits = filterCommitsForPackage(commits, pkg.name)
+			const relevantCommits = filterCommitsForPackage(commits, pkg.name, pkg.path, gitRoot)
 			const releaseType = determineReleaseType(relevantCommits, config)
 
 			if (releaseType) {
@@ -104,7 +120,10 @@ export function calculateBumps(
 				currentVersion: pkg.version,
 				newVersion,
 				releaseType,
-				commits: strategy === 'synced' ? filterCommitsForPackage(commits, pkg.name) : commits,
+				commits:
+					strategy === 'synced'
+						? filterCommitsForPackage(commits, pkg.name, pkg.path, gitRoot)
+						: commits,
 			})
 		}
 	}
@@ -130,6 +149,45 @@ export function calculateSingleBump(
 		releaseType,
 		commits,
 	}
+}
+
+/**
+ * Calculate version bumps for monorepo packages with per-package context
+ * Each package has its own commits since its last tag
+ */
+export function calculateMonorepoBumps(
+	contexts: MonorepoBumpContext[],
+	config: BumpConfig,
+	options?: CalculateBumpsOptions
+): VersionBump[] {
+	const bumps: VersionBump[] = []
+	const gitRoot = options?.gitRoot
+
+	for (const ctx of contexts) {
+		if (ctx.package.private) continue
+
+		// Filter commits that affect this package using file-based detection
+		const relevantCommits = filterCommitsForPackage(
+			ctx.commits,
+			ctx.package.name,
+			ctx.package.path,
+			gitRoot
+		)
+
+		const releaseType = determineReleaseType(relevantCommits, config)
+
+		if (releaseType) {
+			bumps.push({
+				package: ctx.package.name,
+				currentVersion: ctx.package.version,
+				newVersion: incrementVersion(ctx.package.version, releaseType),
+				releaseType,
+				commits: relevantCommits,
+			})
+		}
+	}
+
+	return bumps
 }
 
 /**

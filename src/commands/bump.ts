@@ -2,7 +2,7 @@ import consola from 'consola'
 import pc from 'picocolors'
 import { createReleaseForBump } from '../adapters/github.ts'
 import {
-	calculateBumps,
+	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
 	formatVersionTag,
@@ -11,6 +11,7 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
+	type MonorepoBumpContext,
 	updateChangelog,
 	updateDependencyVersions,
 	updatePackageVersion,
@@ -20,7 +21,9 @@ import {
 	commit,
 	createTag,
 	getGitHubRepoUrl,
+	getGitRoot,
 	getLatestTag,
+	getLatestTagForPackage,
 	isWorkingTreeClean,
 	stageFiles,
 } from '../utils/git.ts'
@@ -38,34 +41,78 @@ export interface BumpOptions {
 export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext> {
 	const cwd = options.cwd ?? process.cwd()
 	const config = await loadConfig(cwd)
+	const gitRoot = await getGitRoot()
 
 	consola.start('Analyzing commits...')
 
-	// Get commits since last tag
-	const latestTag = await getLatestTag()
-	const commits = await getConventionalCommits(latestTag ?? undefined)
-
-	if (commits.length === 0) {
-		consola.info('No new commits since last release')
-		return {
-			config,
-			packages: [],
-			commits: [],
-			bumps: [],
-			dryRun: options.dryRun ?? false,
-		}
-	}
-
-	consola.info(`Found ${pc.bold(commits.length)} commits since ${latestTag ?? 'beginning'}`)
-
 	// Determine packages and bumps
 	let bumps: VersionBump[] = []
+	let allCommits: ReturnType<typeof getConventionalCommits> extends Promise<infer T> ? T : never =
+		[]
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
 	if (packages.length > 0) {
 		consola.info(`Monorepo detected with ${pc.bold(packages.length)} packages`)
-		bumps = calculateBumps(packages, commits, config)
+
+		// For monorepos, get commits since each package's last tag
+		const contexts: MonorepoBumpContext[] = []
+
+		for (const pkg of packages) {
+			const latestTag = await getLatestTagForPackage(pkg.name)
+			const commits = await getConventionalCommits(latestTag ?? undefined)
+
+			if (commits.length > 0) {
+				contexts.push({
+					package: pkg,
+					commits,
+					latestTag,
+				})
+				// Collect all commits for reporting
+				for (const c of commits) {
+					if (!allCommits.some((ac) => ac.hash === c.hash)) {
+						allCommits.push(c)
+					}
+				}
+			}
+
+			if (latestTag) {
+				consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${latestTag}`)
+			} else {
+				consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits (no previous release)`)
+			}
+		}
+
+		if (contexts.length === 0) {
+			consola.info('No new commits since last releases')
+			return {
+				config,
+				packages,
+				commits: [],
+				bumps: [],
+				dryRun: options.dryRun ?? false,
+			}
+		}
+
+		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
 	} else {
+		// Single package mode
+		const latestTag = await getLatestTag()
+		const commits = await getConventionalCommits(latestTag ?? undefined)
+		allCommits = commits
+
+		if (commits.length === 0) {
+			consola.info('No new commits since last release')
+			return {
+				config,
+				packages: [],
+				commits: [],
+				bumps: [],
+				dryRun: options.dryRun ?? false,
+			}
+		}
+
+		consola.info(`Found ${pc.bold(commits.length)} commits since ${latestTag ?? 'beginning'}`)
+
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
@@ -77,7 +124,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 	if (bumps.length === 0) {
 		consola.info('No version bumps needed (commits do not trigger version changes)')
-		return { config, packages, commits, bumps, dryRun: options.dryRun ?? false }
+		return { config, packages, commits: allCommits, bumps, dryRun: options.dryRun ?? false }
 	}
 
 	// Display planned changes
@@ -92,7 +139,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 	if (options.dryRun) {
 		consola.info('Dry run mode - no changes will be made')
-		return { config, packages, commits, bumps, dryRun: true }
+		return { config, packages, commits: allCommits, bumps, dryRun: true }
 	}
 
 	// Check working tree
@@ -159,5 +206,5 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 	consola.success('Release completed!')
 
-	return { config, packages, commits, bumps, dryRun: false }
+	return { config, packages, commits: allCommits, bumps, dryRun: false }
 }

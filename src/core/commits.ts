@@ -6,7 +6,7 @@ import { type GitCommit, getCommitsSince } from '../utils/git.ts'
  * Format: type(scope): subject
  */
 export function parseConventionalCommit(commit: GitCommit): ConventionalCommit | null {
-	const { hash, message, body } = commit
+	const { hash, message, body, files } = commit
 
 	// Match: type(scope)!: subject or type!: subject or type(scope): subject or type: subject
 	const regex = /^(\w+)(?:\(([^)]+)\))?(!)?\s*:\s*(.+)$/
@@ -30,6 +30,7 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 		body: body || undefined,
 		breaking: isBreaking,
 		raw: message,
+		files: files ?? [],
 	}
 }
 
@@ -126,12 +127,60 @@ export function groupCommitsByScope(
 }
 
 /**
- * Filter commits relevant to a specific package (by scope)
+ * Check if a file path belongs to a package directory
+ * @param filePath - relative file path from git root
+ * @param packagePath - absolute or relative path to package directory
+ * @param gitRoot - absolute path to git root (optional, for resolving relative paths)
+ */
+export function fileMatchesPackage(
+	filePath: string,
+	packagePath: string,
+	gitRoot?: string
+): boolean {
+	// Normalize package path to be relative to git root
+	let relativePkgPath = packagePath
+	if (gitRoot && packagePath.startsWith(gitRoot)) {
+		relativePkgPath = packagePath.slice(gitRoot.length).replace(/^\//, '')
+	}
+
+	// Handle root package (path is just '.' or empty)
+	if (!relativePkgPath || relativePkgPath === '.') {
+		return true
+	}
+
+	// Check if file is within package directory
+	return filePath.startsWith(relativePkgPath + '/') || filePath === relativePkgPath
+}
+
+/**
+ * Filter commits relevant to a specific package
+ * Uses file-based detection for accuracy, with scope as fallback
  */
 export function filterCommitsForPackage(
 	commits: ConventionalCommit[],
-	packageName: string
+	packageName: string,
+	packagePath?: string,
+	gitRoot?: string
 ): ConventionalCommit[] {
-	// Include commits with matching scope or no scope
-	return commits.filter((c) => !c.scope || c.scope === packageName)
+	return commits.filter((c) => {
+		// If we have file information and package path, use file-based detection
+		if (c.files.length > 0 && packagePath) {
+			const hasMatchingFile = c.files.some((file) =>
+				fileMatchesPackage(file, packagePath, gitRoot)
+			)
+			// If commit has files, only include if files match the package
+			return hasMatchingFile
+		}
+
+		// Fallback to scope-based matching (when no files available)
+		// Include commits with matching scope or no scope (affects all packages)
+		if (!c.scope) return true
+		if (c.scope === packageName) return true
+
+		// Extract short name from scoped package (e.g., @scope/pkg -> pkg)
+		const shortName = packageName.includes('/') ? packageName.split('/').pop() : packageName
+		if (c.scope === shortName) return true
+
+		return false
+	})
 }

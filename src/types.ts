@@ -83,6 +83,8 @@ export interface ConventionalCommit {
 	body?: string
 	breaking: boolean
 	raw: string
+	/** Files changed in this commit */
+	files: string[]
 }
 
 export interface PackageInfo {

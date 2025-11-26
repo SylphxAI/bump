@@ -6,6 +6,7 @@ export interface GitCommit {
 	body: string
 	author: string
 	date: string
+	files: string[]
 }
 
 /**
@@ -14,6 +15,18 @@ export interface GitCommit {
 export async function getGitRoot(): Promise<string> {
 	const result = await $`git rev-parse --show-toplevel`.text()
 	return result.trim()
+}
+
+/**
+ * Get files changed in a commit
+ */
+export async function getCommitFiles(hash: string): Promise<string[]> {
+	try {
+		const result = await $`git diff-tree --no-commit-id --name-only -r ${hash}`.text()
+		return result.trim().split('\n').filter(Boolean)
+	} catch {
+		return []
+	}
 }
 
 /**
@@ -33,7 +46,7 @@ export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
 
 	if (!result.trim()) return []
 
-	return result
+	const commits = result
 		.split(separator)
 		.filter(Boolean)
 		.map((commit) => {
@@ -44,9 +57,17 @@ export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
 				body: body ?? '',
 				author: author ?? '',
 				date: date ?? '',
+				files: [] as string[],
 			}
 		})
 		.filter((c) => c.hash)
+
+	// Get files for each commit
+	for (const commit of commits) {
+		commit.files = await getCommitFiles(commit.hash)
+	}
+
+	return commits
 }
 
 /**
@@ -68,6 +89,55 @@ export async function getLatestTag(pattern?: string): Promise<string | null> {
 export async function getAllTags(): Promise<string[]> {
 	const result = await $`git tag -l`.text()
 	return result.trim().split('\n').filter(Boolean)
+}
+
+/**
+ * Get all tags for a specific package
+ * Supports formats: @scope/pkg@1.0.0, pkg@1.0.0
+ */
+export async function getTagsForPackage(packageName: string): Promise<string[]> {
+	const allTags = await getAllTags()
+	// Match both scoped (@scope/pkg@version) and unscoped (pkg@version) formats
+	return allTags.filter((tag) => {
+		// Exact match: @scope/pkg@1.0.0 or pkg@1.0.0
+		if (tag.startsWith(`${packageName}@`)) return true
+		return false
+	})
+}
+
+/**
+ * Get the latest tag for a specific package
+ */
+export async function getLatestTagForPackage(packageName: string): Promise<string | null> {
+	const tags = await getTagsForPackage(packageName)
+	if (tags.length === 0) return null
+
+	// Sort by version (extract version from tag)
+	const sortedTags = tags.sort((a, b) => {
+		const versionA = a.replace(`${packageName}@`, '')
+		const versionB = b.replace(`${packageName}@`, '')
+		// Simple semver comparison
+		const partsA = versionA.split('.').map(Number)
+		const partsB = versionB.split('.').map(Number)
+		for (let i = 0; i < 3; i++) {
+			const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0)
+			if (diff !== 0) return diff
+		}
+		return 0
+	})
+
+	return sortedTags[sortedTags.length - 1] ?? null
+}
+
+/**
+ * Parse version from package tag
+ * @scope/pkg@1.0.0 -> 1.0.0
+ */
+export function parseVersionFromPackageTag(tag: string, packageName: string): string | null {
+	if (tag.startsWith(`${packageName}@`)) {
+		return tag.slice(packageName.length + 1)
+	}
+	return null
 }
 
 /**

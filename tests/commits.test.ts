@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 import {
 	determineReleaseType,
+	fileMatchesPackage,
+	filterCommitsForPackage,
 	groupCommitsByType,
 	parseConventionalCommit,
 } from '../src/core/commits.ts'
@@ -15,6 +17,7 @@ describe('commits', () => {
 				body: '',
 				author: 'test',
 				date: '2024-01-01',
+				files: [],
 			})
 
 			expect(result).toEqual({
@@ -25,6 +28,7 @@ describe('commits', () => {
 				body: undefined,
 				breaking: false,
 				raw: 'feat: add new feature',
+				files: [],
 			})
 		})
 
@@ -35,6 +39,7 @@ describe('commits', () => {
 				body: '',
 				author: 'test',
 				date: '2024-01-01',
+				files: [],
 			})
 
 			expect(result?.type).toBe('fix')
@@ -49,6 +54,7 @@ describe('commits', () => {
 				body: '',
 				author: 'test',
 				date: '2024-01-01',
+				files: [],
 			})
 
 			expect(result?.breaking).toBe(true)
@@ -61,6 +67,7 @@ describe('commits', () => {
 				body: 'BREAKING CHANGE: this breaks things',
 				author: 'test',
 				date: '2024-01-01',
+				files: [],
 			})
 
 			expect(result?.breaking).toBe(true)
@@ -73,9 +80,23 @@ describe('commits', () => {
 				body: '',
 				author: 'test',
 				date: '2024-01-01',
+				files: [],
 			})
 
 			expect(result).toBe(null)
+		})
+
+		it('should preserve files from git commit', () => {
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'feat: add feature',
+				body: '',
+				author: 'test',
+				date: '2024-01-01',
+				files: ['packages/foo/src/index.ts', 'packages/foo/package.json'],
+			})
+
+			expect(result?.files).toEqual(['packages/foo/src/index.ts', 'packages/foo/package.json'])
 		})
 	})
 
@@ -98,6 +119,7 @@ describe('commits', () => {
 					subject: 'breaking',
 					breaking: true,
 					raw: 'feat!: breaking',
+					files: [],
 				},
 			]
 
@@ -112,6 +134,7 @@ describe('commits', () => {
 					subject: 'feature',
 					breaking: false,
 					raw: 'feat: feature',
+					files: [],
 				},
 			]
 
@@ -126,6 +149,7 @@ describe('commits', () => {
 					subject: 'fix',
 					breaking: false,
 					raw: 'fix: fix',
+					files: [],
 				},
 			]
 
@@ -134,8 +158,8 @@ describe('commits', () => {
 
 		it('should return highest type from multiple commits', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: '1', type: 'fix', subject: 'fix', breaking: false, raw: 'fix: fix' },
-				{ hash: '2', type: 'feat', subject: 'feat', breaking: false, raw: 'feat: feat' },
+				{ hash: '1', type: 'fix', subject: 'fix', breaking: false, raw: 'fix: fix', files: [] },
+				{ hash: '2', type: 'feat', subject: 'feat', breaking: false, raw: 'feat: feat', files: [] },
 			]
 
 			expect(determineReleaseType(commits, config)).toBe('minor')
@@ -143,7 +167,7 @@ describe('commits', () => {
 
 		it('should return null for commits that dont trigger release', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: 'abc', type: 'docs', subject: 'docs', breaking: false, raw: 'docs: docs' },
+				{ hash: 'abc', type: 'docs', subject: 'docs', breaking: false, raw: 'docs: docs', files: [] },
 			]
 
 			expect(determineReleaseType(commits, config)).toBe(null)
@@ -153,15 +177,143 @@ describe('commits', () => {
 	describe('groupCommitsByType', () => {
 		it('should group commits by type', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: '1', type: 'feat', subject: 'feat 1', breaking: false, raw: '' },
-				{ hash: '2', type: 'fix', subject: 'fix 1', breaking: false, raw: '' },
-				{ hash: '3', type: 'feat', subject: 'feat 2', breaking: false, raw: '' },
+				{ hash: '1', type: 'feat', subject: 'feat 1', breaking: false, raw: '', files: [] },
+				{ hash: '2', type: 'fix', subject: 'fix 1', breaking: false, raw: '', files: [] },
+				{ hash: '3', type: 'feat', subject: 'feat 2', breaking: false, raw: '', files: [] },
 			]
 
 			const groups = groupCommitsByType(commits)
 
 			expect(groups.get('feat')?.length).toBe(2)
 			expect(groups.get('fix')?.length).toBe(1)
+		})
+	})
+
+	describe('fileMatchesPackage', () => {
+		it('should match files within package directory', () => {
+			expect(fileMatchesPackage('packages/foo/src/index.ts', 'packages/foo')).toBe(true)
+			expect(fileMatchesPackage('packages/foo/package.json', 'packages/foo')).toBe(true)
+		})
+
+		it('should not match files outside package directory', () => {
+			expect(fileMatchesPackage('packages/bar/src/index.ts', 'packages/foo')).toBe(false)
+			expect(fileMatchesPackage('src/index.ts', 'packages/foo')).toBe(false)
+		})
+
+		it('should handle root package (empty or . path)', () => {
+			expect(fileMatchesPackage('src/index.ts', '')).toBe(true)
+			expect(fileMatchesPackage('src/index.ts', '.')).toBe(true)
+		})
+
+		it('should handle absolute paths with gitRoot', () => {
+			const gitRoot = '/Users/test/project'
+			expect(
+				fileMatchesPackage('packages/foo/src/index.ts', '/Users/test/project/packages/foo', gitRoot)
+			).toBe(true)
+		})
+	})
+
+	describe('filterCommitsForPackage', () => {
+		it('should filter commits by file path', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					subject: 'feat for foo',
+					breaking: false,
+					raw: '',
+					files: ['packages/foo/src/index.ts'],
+				},
+				{
+					hash: '2',
+					type: 'fix',
+					subject: 'fix for bar',
+					breaking: false,
+					raw: '',
+					files: ['packages/bar/src/index.ts'],
+				},
+				{
+					hash: '3',
+					type: 'feat',
+					subject: 'feat for foo',
+					breaking: false,
+					raw: '',
+					files: ['packages/foo/package.json'],
+				},
+			]
+
+			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
+			expect(filtered.length).toBe(2)
+			expect(filtered.map((c) => c.hash)).toEqual(['1', '3'])
+		})
+
+		it('should NOT include commits with unrelated files even without scope', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					subject: 'global feature',
+					breaking: false,
+					raw: '',
+					files: ['README.md'], // File not in packages/foo
+				},
+			]
+
+			// When files are available, use file-based detection (strict)
+			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
+			expect(filtered.length).toBe(0)
+		})
+
+		it('should include commits without files and without scope (legacy behavior)', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					subject: 'global feature',
+					breaking: false,
+					raw: '',
+					files: [], // No file info available
+				},
+			]
+
+			// Without file info, falls back to scope-based (no scope = affects all)
+			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
+			expect(filtered.length).toBe(1)
+		})
+
+		it('should fall back to scope matching when no files', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					scope: 'foo',
+					subject: 'feat for foo',
+					breaking: false,
+					raw: '',
+					files: [],
+				},
+			]
+
+			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
+			expect(filtered.length).toBe(1)
+		})
+
+		it('should match short package name from scoped package', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					scope: 'foo',
+					subject: 'feat for foo',
+					breaking: false,
+					raw: '',
+					files: [],
+				},
+			]
+
+			// @scope/foo should match scope 'foo'
+			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
+			expect(filtered.length).toBe(1)
 		})
 	})
 })
