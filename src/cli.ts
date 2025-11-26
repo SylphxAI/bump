@@ -3,6 +3,7 @@ import { defineCommand, runMain } from 'citty'
 import consola from 'consola'
 import { runBump } from './commands/bump.ts'
 import { runInit } from './commands/init.ts'
+import { runPr } from './commands/pr.ts'
 import { runStatus } from './commands/status.ts'
 
 const bump = defineCommand({
@@ -66,6 +67,30 @@ const bump = defineCommand({
 			},
 			run: async () => {
 				await runStatus()
+			},
+		}),
+		pr: defineCommand({
+			meta: {
+				name: 'pr',
+				description: 'Create or update a release PR',
+			},
+			args: {
+				'dry-run': {
+					type: 'boolean',
+					description: 'Preview without creating PR',
+					alias: 'd',
+				},
+				base: {
+					type: 'string',
+					description: 'Base branch for PR',
+					default: 'main',
+				},
+			},
+			run: async ({ args }) => {
+				await runPr({
+					dryRun: Boolean(args['dry-run']),
+					baseBranch: args.base as string,
+				})
 			},
 		}),
 	},

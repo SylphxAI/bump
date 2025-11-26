@@ -1,0 +1,27 @@
+# Manual trigger release workflow
+# Use this when you want to release on-demand by clicking "Run workflow" in GitHub Actions
+
+name: Release (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run (preview only)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: SylphxAI/bump@v0
+        with:
+          dry-run: ${{ inputs.dry-run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          npm-token: ${{ secrets.NPM_TOKEN }}

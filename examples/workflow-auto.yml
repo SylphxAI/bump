@@ -1,0 +1,24 @@
+# Auto release workflow
+# Automatically releases on every push to main (if there are releasable changes)
+# ⚠️ Use with caution - may create many releases
+
+name: Release (Auto)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Skip if commit is from bump itself (avoid infinite loop)
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: SylphxAI/bump@v0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          npm-token: ${{ secrets.NPM_TOKEN }}

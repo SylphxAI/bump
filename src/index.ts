@@ -46,6 +46,7 @@ export {
 // Commands (for programmatic use)
 export { runBump, type BumpOptions } from './commands/bump.ts'
 export { runInit, type InitOptions } from './commands/init.ts'
+export { runPr, type PrOptions } from './commands/pr.ts'
 export { runStatus, type StatusOptions } from './commands/status.ts'
 
 // Adapters

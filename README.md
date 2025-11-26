@@ -118,6 +118,18 @@ Show release status and pending changes.
 bump status
 ```
 
+### `bump pr`
+
+Create or update a release PR. The PR stays open until you're ready to release.
+
+```bash
+bump pr [options]
+
+Options:
+  -d, --dry-run      Preview without creating PR
+  --base <branch>    Base branch for PR (default: main)
+```
+
 ## Conventional Commits
 
 bump uses [Conventional Commits](https://www.conventionalcommits.org/) to automatically determine version bumps:
@@ -144,16 +156,37 @@ All packages share the same version. A change to any package bumps all.
 
 All packages share the same version, but only packages with changes are included in the release.
 
-## GitHub Action
+## Release Modes
 
-Use bump in your CI/CD pipeline:
+bump supports three release modes to fit your workflow:
+
+### 1. Local Release
+
+Release directly from your terminal:
+
+```bash
+# Preview what will be released
+bump --dry-run
+
+# Release!
+bump
+```
+
+### 2. Manual Trigger (Recommended)
+
+Release on-demand via GitHub Actions:
 
 ```yaml
+# .github/workflows/release.yml
 name: Release
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Dry run'
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -161,13 +194,69 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for commit history
+          fetch-depth: 0
 
-      - uses: SylphxAI/bump@v0.1.0
+      - uses: SylphxAI/bump@v0
         with:
+          dry-run: ${{ inputs.dry-run }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           npm-token: ${{ secrets.NPM_TOKEN }}
 ```
+
+Then click **Actions → Release → Run workflow** when you want to release.
+
+### 3. Release PR Mode
+
+Automatically maintain a release PR that you merge when ready:
+
+```yaml
+# .github/workflows/release-pr.yml
+name: Release PR
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun add -g @sylphx/bump
+
+      - run: bump pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+This creates a PR like:
+
+```
+┌─────────────────────────────────────────┐
+│ PR #42: chore(release): v1.2.0          │
+├─────────────────────────────────────────┤
+│ ## 🚀 Release                           │
+│                                         │
+│ This PR will release v1.2.0             │
+│                                         │
+│ ### ✨ Features                         │
+│ - feat: add new feature                 │
+│                                         │
+│ ### 🐛 Bug Fixes                        │
+│ - fix: resolve issue                    │
+│                                         │
+│ > Merging this PR will publish to npm   │
+└─────────────────────────────────────────┘
+```
+
+**Merge the PR = Release** 🚀
+
+## GitHub Action
 
 ### Action Inputs
 
