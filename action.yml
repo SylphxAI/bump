@@ -179,10 +179,7 @@ runs:
             PIDS=""
             declare -a PACKAGES=()
 
-            # Setup global npmrc once
-            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-
-            # Collect info + sequential publish (parallel was swallowing errors)
+            # Collect info + sequential publish
             for pattern in $WORKSPACES; do
               for pkg_dir in $pattern; do
                 [ -f "$pkg_dir/package.json" ] || continue
@@ -194,9 +191,11 @@ runs:
                 PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
                 VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
 
-                # Publish sequentially to see errors
+                # Publish with local npmrc in package directory
                 echo "Publishing $PKG_NAME..."
+                echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$pkg_dir/.npmrc"
                 (cd "$pkg_dir" && bun publish --access public) || echo "Warning: Failed to publish $PKG_NAME"
+                rm -f "$pkg_dir/.npmrc"
 
                 # Create tag if not exists
                 if [ "${{ inputs.tag }}" = "true" ]; then
@@ -206,7 +205,6 @@ runs:
               done
             done
 
-            rm -f ~/.npmrc
             echo "Publishing complete"
 
             # Push tags once
