@@ -1,5 +1,15 @@
 # @sylphx/bump
 
+## 0.10.2 (2025-11-27)
+
+### 🐛 Bug Fixes
+
+- **pr:** handle gh pr create failure gracefully ([4c33726](https://github.com/SylphxAI/bump/commit/4c337268aa936ae85d45f5e9bc2182076b45967d))
+
+### 🔧 Chores
+
+- remove .changeset folder (bump uses git commits, not changesets) ([be3dfd9](https://github.com/SylphxAI/bump/commit/be3dfd94351407f6102f5aaf9465d517f65d0150))
+
 ## 0.10.1 (2025-11-27)
 
 ### 🐛 Bug Fixes
