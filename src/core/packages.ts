@@ -166,3 +166,59 @@ export function isMonorepo(cwd: string): boolean {
 
 	return false
 }
+
+/**
+ * Find packages that depend on the given package names
+ * Checks dependencies and devDependencies (not peerDependencies)
+ */
+export function findDependentPackages(
+	packages: PackageInfo[],
+	targetNames: Set<string>
+): PackageInfo[] {
+	const dependents: PackageInfo[] = []
+
+	for (const pkg of packages) {
+		// Skip if already in target set
+		if (targetNames.has(pkg.name)) continue
+
+		const allDeps = {
+			...pkg.dependencies,
+			...pkg.devDependencies,
+		}
+
+		// Check if any dependency is in the target set
+		for (const depName of Object.keys(allDeps)) {
+			if (targetNames.has(depName)) {
+				dependents.push(pkg)
+				break
+			}
+		}
+	}
+
+	return dependents
+}
+
+/**
+ * Calculate cascade bumps for dependent packages
+ * Returns packages that need to be bumped due to dependency updates
+ */
+export function calculateCascadeBumps(
+	packages: PackageInfo[],
+	bumpedNames: Set<string>
+): PackageInfo[] {
+	const allBumped = new Set(bumpedNames)
+	const cascadeBumps: PackageInfo[] = []
+
+	// Keep finding dependents until no new ones are found
+	let newDependents = findDependentPackages(packages, allBumped)
+
+	while (newDependents.length > 0) {
+		for (const pkg of newDependents) {
+			cascadeBumps.push(pkg)
+			allBumped.add(pkg.name)
+		}
+		newDependents = findDependentPackages(packages, allBumped)
+	}
+
+	return cascadeBumps
+}

@@ -5,17 +5,19 @@ import consola from 'consola'
 import pc from 'picocolors'
 import {
 	type MonorepoBumpContext,
+	calculateCascadeBumps,
 	calculateMonorepoBumps,
 	calculateSingleBump,
 	discoverPackages,
 	generateChangelogEntry,
 	getConventionalCommits,
 	getSinglePackage,
+	incrementVersion,
 	isMonorepo,
 	loadConfig,
 	updateChangelog,
 } from '../core/index.ts'
-import type { VersionBump } from '../types.ts'
+import type { PackageInfo, VersionBump } from '../types.ts'
 import {
 	getAllTags,
 	getCurrentBranch,
@@ -206,6 +208,23 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 		}
 
 		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
+
+		// Cascade bump: find packages that depend on bumped packages
+		if (bumps.length > 0) {
+			const bumpedNames = new Set(bumps.map((b) => b.package))
+			const cascadePackages = calculateCascadeBumps(packages, bumpedNames)
+
+			for (const pkg of cascadePackages) {
+				const newVersion = incrementVersion(pkg.version, 'patch')
+				bumps.push({
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion,
+					releaseType: 'patch',
+					commits: [], // No direct commits, bumped due to dependency update
+				})
+			}
+		}
 	} else {
 		// Single package mode
 		const latestTag = await getLatestTag()

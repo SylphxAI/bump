@@ -33,4 +33,6 @@ export {
 	updatePackageVersion,
 	updateDependencyVersions,
 	isMonorepo,
+	findDependentPackages,
+	calculateCascadeBumps,
 } from './packages.ts'
