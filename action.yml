@@ -252,7 +252,9 @@ runs:
 
             # Install + publish
             bun install --frozen-lockfile 2>/dev/null || bun install
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
             bun publish --access public
+            rm -f .npmrc
 
             # Tag
             if [ "${{ inputs.tag }}" = "true" ]; then
