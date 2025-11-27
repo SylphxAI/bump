@@ -152,7 +152,7 @@ runs:
 
                   if [ "$PKG_PRIVATE" = "false" ]; then
                     echo "Package: $PKG_NAME@$PKG_VERSION"
-                    VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq --arg name "$PKG_NAME" --arg ver "$PKG_VERSION" '. + {($name): $ver}')
+                    VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg name "$PKG_NAME" --arg ver "$PKG_VERSION" '. + {($name): $ver}')
                   fi
                 fi
               done
