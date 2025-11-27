@@ -54,7 +54,12 @@ export function generateChangelogEntry(
 	lines.push('')
 
 	if (commits.length === 0) {
-		lines.push('No notable changes.')
+		// Check if this is a dependency update bump
+		if (bump.reason === 'dependency-update') {
+			lines.push('Dependency updates.')
+		} else {
+			lines.push('No notable changes.')
+		}
 		lines.push('')
 		return lines.join('\n')
 	}

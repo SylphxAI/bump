@@ -237,7 +237,8 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 					currentVersion: pkg.version,
 					newVersion,
 					releaseType: 'patch',
-					commits: [], // No direct commits, bumped due to dependency update
+					commits: [],
+					reason: 'dependency-update',
 				})
 			}
 		}
