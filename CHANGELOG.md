@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.1.2 (2025-11-27)
+
+### ♻️ Refactoring
+
+- PR commits actual version changes, publish only publishes ([99bb396](https://github.com/SylphxAI/bump/commit/99bb396abff3de28df15ef13a61ce0b3e9db8da8))
+
 ## 1.1.1 (2025-11-27)
 
 ### 🐛 Bug Fixes
