@@ -10,7 +10,7 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 - **Monorepo native** - File-based detection, independent versioning, cascade bumps
 - **Workspace protocol** - Auto-resolves `workspace:*` dependencies at publish time
 - **Pre-releases** - Alpha, beta, RC with single flag
-- **Graduate to 1.0** - Commit `feat: graduate` to go from 0.x → 1.0.0
+- **Graduate to 1.0** - CLI flag or config to go from 0.x → 1.0.0
 - **Cross-platform** - Works with npm, yarn, pnpm, and bun
 - **GitHub integration** - Auto-creates releases and changelogs
 
@@ -103,7 +103,6 @@ Use these prefixes in your commits:
 | `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add dark mode` |
 | `fix:` | Patch (1.0.0 → 1.0.1) | `fix: resolve login bug` |
 | `feat!:` | Major (1.0.0 → 2.0.0) | `feat!: redesign API` |
-| `feat: graduate` | Graduate (0.x → 1.0.0) | `feat: graduate to stable` |
 
 Other prefixes like `docs:`, `chore:`, `test:`, `ci:` don't trigger releases.
 
@@ -112,11 +111,10 @@ Other prefixes like `docs:`, `chore:`, `test:`, `ci:` don't trigger releases.
 During 0.x development, breaking changes bump minor instead of major (per semver spec):
 - `feat!:` on 0.1.0 → 0.2.0 (not 1.0.0)
 
-When ready for stable release, commit with "graduate" in the message:
+When ready for stable release, use the `--graduate` flag:
 ```bash
-git commit -m "feat: graduate to stable release"
+npx bump --graduate    # 0.x.x → 1.0.0
 ```
-This will bump 0.x.x → 1.0.0.
 
 ## What Happens
 

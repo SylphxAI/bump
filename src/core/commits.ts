@@ -20,13 +20,9 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 	const hasBreakingInBody = body?.includes('BREAKING CHANGE:') || body?.includes('BREAKING-CHANGE:')
 	const isBreaking = !!breaking || hasBreakingInBody
 
-	// Check for GRADUATE (0.x → 1.0.0) - in subject or body
-	const subjectLower = subject?.toLowerCase() ?? ''
-	const bodyLower = body?.toLowerCase() ?? ''
-	const isGraduate =
-		subjectLower.includes('graduate') ||
-		bodyLower.includes('graduate:') ||
-		bodyLower.includes('stable:')
+	// Graduate (0.x → 1.0.0) is only triggered via config or CLI flag
+	// Not via commit message - too risky for accidental triggers
+	const isGraduate = false
 
 	if (!type || !subject) return null
 
