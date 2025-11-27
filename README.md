@@ -2,6 +2,29 @@
 
 Automatic versioning and publishing for npm packages. Zero config, just commits.
 
+## Features
+
+- **Zero config** - Works out of the box with conventional commits
+- **Automatic Release PRs** - Preview changes before publishing
+- **Monorepo support** - File-based package detection, independent versioning
+- **Pre-releases** - Alpha, beta, RC with single flag
+- **Cross-platform** - Works with npm, yarn, pnpm, and bun
+- **GitHub integration** - Auto-creates releases and changelogs
+
+## Why bump?
+
+| | bump | changesets |
+|---|---|---|
+| **Setup** | 1 workflow file | Multiple config files + bot |
+| **Workflow** | Just commit | Create changeset file per change |
+| **Version control** | Automatic from commits | Manual per-changeset |
+| **Learning curve** | Know conventional commits? Done | New syntax + tooling |
+| **PR noise** | 1 release PR | 1 changeset PR per change |
+
+**bump** is for teams who want releases to "just work" based on commit messages.
+
+**changesets** is for teams who need fine-grained control over every version bump.
+
 ## How It Works
 
 1. You write commits like `feat: add login` or `fix: resolve bug`
