@@ -4,6 +4,7 @@ import consola from 'consola'
 import { runBump } from './commands/bump.ts'
 import { runInit } from './commands/init.ts'
 import { runPr } from './commands/pr.ts'
+import { runPublish } from './commands/publish.ts'
 import { runStatus } from './commands/status.ts'
 import { BumpError, formatError } from './utils/errors.ts'
 
@@ -119,10 +120,31 @@ const bump = defineCommand({
 				})
 			},
 		}),
+		publish: defineCommand({
+			meta: {
+				name: 'publish',
+				description: 'Publish packages from .bump-pending.json (runs after PR merge)',
+			},
+			args: {
+				'dry-run': {
+					type: 'boolean',
+					description: 'Preview without publishing',
+					alias: 'd',
+				},
+			},
+			run: async ({ args }) => {
+				const published = await runPublish({
+					dryRun: Boolean(args['dry-run']),
+				})
+				if (!published) {
+					process.exit(0) // No packages to publish is not an error
+				}
+			},
+		}),
 	},
 	run: async ({ args, rawArgs }) => {
 		// Don't run if a subcommand was invoked
-		const subcommands = ['init', 'status', 'pr']
+		const subcommands = ['init', 'status', 'pr', 'publish']
 		if (rawArgs.some((arg) => subcommands.includes(arg))) {
 			return
 		}

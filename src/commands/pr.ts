@@ -350,6 +350,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	// Check for existing PR
 	const existingPr = await findReleasePr()
 
+	// Write bumps to .bump-pending.json (will be merged into main, triggers publish)
+	const bumpsFile = join(cwd, '.bump-pending.json')
+	const { writeFileSync } = await import('node:fs')
+	writeFileSync(bumpsFile, JSON.stringify(bumps, null, '\t'))
+
 	try {
 		if (existingPr) {
 			// Update existing PR
@@ -360,18 +365,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git checkout -B ${PR_BRANCH}`
 			await $`git reset --hard origin/${baseBranch}`
 
-			// Apply version changes and update changelogs
-			for (const bump of bumps) {
-				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
-				updatePackageVersion(pkgPath, bump.newVersion)
-
-				// Update CHANGELOG.md
-				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
-				updateChangelog(pkgPath, entry, config)
-			}
-
-			// Commit and push
-			await $`git add -A`
+			// Only commit .bump-pending.json - NO package.json or CHANGELOG changes
+			// Those happen during publish after merge succeeds
+			await $`git add .bump-pending.json`
 			await $`git commit -m ${prTitle} --allow-empty`
 			await $`git push -f origin ${PR_BRANCH}`
 
@@ -392,18 +388,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Create branch (force to overwrite if exists locally)
 			await $`git checkout -B ${PR_BRANCH}`
 
-			// Apply version changes and update changelogs
-			for (const bump of bumps) {
-				const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
-				updatePackageVersion(pkgPath, bump.newVersion)
-
-				// Update CHANGELOG.md
-				const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
-				updateChangelog(pkgPath, entry, config)
-			}
-
-			// Commit and push (force push in case branch exists on remote)
-			await $`git add -A`
+			// Only commit .bump-pending.json - NO package.json or CHANGELOG changes
+			// Those happen during publish after merge succeeds
+			await $`git add .bump-pending.json`
 			await $`git commit -m ${prTitle}`
 			await $`git push -f -u origin ${PR_BRANCH}`
 
