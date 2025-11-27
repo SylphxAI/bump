@@ -1,10 +1,11 @@
 # @sylphx/bump
 
-Automatic versioning and publishing for npm packages. Zero config, just commits.
+Fully semantic release automation. Conventional commits in, semantic versions out.
 
 ## Features
 
-- **Zero config** - Works out of the box with conventional commits
+- **Fully semantic** - Conventional commits → semantic versions, automatically
+- **Zero config** - Works out of the box, no setup required
 - **Automatic Release PRs** - Preview changes before publishing
 - **Monorepo support** - File-based package detection, independent versioning
 - **Pre-releases** - Alpha, beta, RC with single flag
