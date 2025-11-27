@@ -266,33 +266,20 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	const publishedPackages: Array<{ name: string; version: string; path: string }> = []
 	let allSuccess = true
 
+	// Create temporary .npmrc for authentication at git root (npm ignores workspace .npmrc files)
+	const npmrcPath = join(cwd, '.npmrc')
+	const existingNpmrc = existsSync(npmrcPath) ? readFileSync(npmrcPath, 'utf-8') : null
+	if (process.env.NPM_TOKEN) {
+		writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${process.env.NPM_TOKEN}\n`)
+	}
+
 	for (const bump of bumps) {
 		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
 
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
-		// Create temporary .npmrc for authentication if NPM_TOKEN is set
-		const npmrcPath = join(pkgPath, '.npmrc')
-		const existingNpmrc = existsSync(npmrcPath) ? readFileSync(npmrcPath, 'utf-8') : null
-		if (process.env.NPM_TOKEN) {
-			writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${process.env.NPM_TOKEN}\n`)
-		}
-
 		// Use npm publish (universal across all package managers)
 		const publishResult = await $({ cwd: pkgPath })`npm publish --access public`.nothrow()
-
-		// Restore original .npmrc or remove temporary one
-		if (process.env.NPM_TOKEN) {
-			if (existingNpmrc !== null) {
-				writeFileSync(npmrcPath, existingNpmrc)
-			} else {
-				try {
-					unlinkSync(npmrcPath)
-				} catch {
-					// Ignore cleanup errors
-				}
-			}
-		}
 
 		if (publishResult.exitCode !== 0) {
 			consola.error(`  Failed to publish ${bump.package}: ${publishResult.stderr}`)
@@ -302,6 +289,19 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		}
 
 		publishedPackages.push({ name: bump.package, version: bump.newVersion, path: pkgPath })
+	}
+
+	// Restore original .npmrc or remove temporary one
+	if (process.env.NPM_TOKEN) {
+		if (existingNpmrc !== null) {
+			writeFileSync(npmrcPath, existingNpmrc)
+		} else {
+			try {
+				unlinkSync(npmrcPath)
+			} catch {
+				// Ignore cleanup errors
+			}
+		}
 	}
 
 	if (!allSuccess) {
