@@ -1,5 +1,25 @@
 # @sylphx/bump
 
+## 0.14.2 (2025-11-27)
+
+### ✨ Features
+
+- cross-platform support via zx and PM detection ([04228e6](https://github.com/SylphxAI/bump/commit/04228e6580d6714c6a71188c5101ad8761bbdf2e))
+- full workspace protocol handling for all package managers ([141840a](https://github.com/SylphxAI/bump/commit/141840a208603dd9ae2ebcfda9cb284fd23f425f))
+
+### 🐛 Bug Fixes
+
+- use .npmrc file for npm authentication instead of env var ([fea4df0](https://github.com/SylphxAI/bump/commit/fea4df096c9440d304e3931b2dbc3a62d1c99749))
+- code cleanup and update README for cross-platform support ([cde3f4f](https://github.com/SylphxAI/bump/commit/cde3f4fa94f1d8e25e845573af721abd16b2bb16))
+- resolve workspace:* to actual versions before publish ([2d838ff](https://github.com/SylphxAI/bump/commit/2d838ff7f199dbd97804876ec5b867f86f09fd8f))
+
+### 📚 Documentation
+
+- highlight workspace protocol and cascade bumps advantages ([a0c1352](https://github.com/SylphxAI/bump/commit/a0c1352105581eddf4b7304b403fb323fb0c7adc))
+- emphasize fully semantic approach ([9ca0853](https://github.com/SylphxAI/bump/commit/9ca0853760f46090a9d913f43e49b7ccc0f03f1a))
+- clarify fine-grained control comparison with changesets ([965b509](https://github.com/SylphxAI/bump/commit/965b5097156ecb0d105c6b750f41fdf1b181bdda))
+- add features section and changesets comparison ([b000134](https://github.com/SylphxAI/bump/commit/b0001343522f2f490e9bae4475f49b5f83119458))
+
 ## 0.14.1 (2025-11-27)
 
 ### ✨ Features
