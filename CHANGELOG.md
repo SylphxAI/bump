@@ -1,5 +1,23 @@
 # @sylphx/bump
 
+## 1.1.0 (2025-11-27)
+
+### ✨ Features
+
+- use package.json version for first release ([0ef011a](https://github.com/SylphxAI/bump/commit/0ef011a8c565ddb3ec2a96dcb7b6e5d19688bed3))
+
+### 🐛 Bug Fixes
+
+- **publish:** create .npmrc at git root instead of package directory ([c76e537](https://github.com/SylphxAI/bump/commit/c76e5379186d61a3d5f5571263c8466a1c65820c))
+
+### ✅ Tests
+
+- add comprehensive test suite (29% → 90% coverage) ([77bf005](https://github.com/SylphxAI/bump/commit/77bf005dd74314d07ddc43ddf96063ca1f53b411))
+
+### 🔧 Chores
+
+- remove graduate config after 1.0.0 release ([c0c6465](https://github.com/SylphxAI/bump/commit/c0c6465c24e04664fa6b9022169554264426817f))
+
 ## 1.0.0 (2025-11-27)
 
 ### ✨ Features
