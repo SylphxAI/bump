@@ -96,28 +96,44 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			})
 		)
 
-		// Build contexts from parallel results
+		// Build contexts from parallel results, handling first releases
 		const contexts: MonorepoBumpContext[] = []
+		const firstReleases: VersionBump[] = []
+
 		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
-			if (commits.length > 0) {
-				contexts.push({
-					package: pkg,
-					commits,
-					latestTag: baselineTag,
-				})
-				// Collect all commits for reporting
-				for (const c of commits) {
-					if (!allCommits.some((ac) => ac.hash === c.hash)) {
-						allCommits.push(c)
-					}
+			if (commits.length === 0) continue
+
+			// Collect all commits for reporting
+			for (const c of commits) {
+				if (!allCommits.some((ac) => ac.hash === c.hash)) {
+					allCommits.push(c)
 				}
 			}
 
 			const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'no previous release')
 			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
+
+			// First release: use package.json version directly
+			if (!npmVersion) {
+				consola.info(`  ${pc.dim('→')} First release: ${pkg.version}`)
+				firstReleases.push({
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion: pkg.version,
+					releaseType: 'patch', // Initial release marker
+					commits,
+				})
+			} else {
+				// Already published: calculate bump from npm version
+				contexts.push({
+					package: pkg,
+					commits,
+					latestTag: baselineTag,
+				})
+			}
 		}
 
-		if (contexts.length === 0) {
+		if (contexts.length === 0 && firstReleases.length === 0) {
 			consola.info('No new commits since last releases')
 			return {
 				config,
@@ -128,11 +144,15 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		bumps = calculateMonorepoBumps(contexts, config, {
-			gitRoot,
-			preid: options.preid,
-			prerelease: options.prerelease,
-		})
+		// Combine first releases with calculated bumps
+		bumps = [
+			...firstReleases,
+			...calculateMonorepoBumps(contexts, config, {
+				gitRoot,
+				preid: options.preid,
+				prerelease: options.prerelease,
+			}),
+		]
 	} else {
 		// Single package mode - use npm published version as baseline
 		const pkg = getSinglePackage(cwd)
@@ -183,11 +203,27 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
 		}
 
-		const bump = calculateSingleBump(pkg, commits, config, {
-			preid: options.preid,
-			prerelease: options.prerelease,
-		})
-		if (bump) bumps = [bump]
+		// First release: use package.json version directly (developer's intent)
+		// Already published: use npm version as baseline (source of truth)
+		if (!npmVersion) {
+			consola.info(`First release: ${pkg.name}@${pkg.version}`)
+			bumps = [
+				{
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion: pkg.version,
+					releaseType: 'patch', // Initial release marker
+					commits,
+				},
+			]
+		} else {
+			const pkgWithNpmVersion = { ...pkg, version: npmVersion }
+			const bump = calculateSingleBump(pkgWithNpmVersion, commits, config, {
+				preid: options.preid,
+				prerelease: options.prerelease,
+			})
+			if (bump) bumps = [bump]
+		}
 	}
 
 	if (bumps.length === 0) {

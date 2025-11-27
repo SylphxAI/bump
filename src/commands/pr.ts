@@ -187,10 +187,25 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			})
 		)
 
-		// Build contexts from parallel results
+		// Build contexts from parallel results, handling first releases
 		const contexts: MonorepoBumpContext[] = []
-		for (const { pkg, baselineTag, commits } of packageResults) {
-			if (commits.length > 0) {
+		const firstReleases: VersionBump[] = []
+
+		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
+			if (commits.length === 0) continue
+
+			// First release: use package.json version directly
+			if (!npmVersion) {
+				consola.info(`First release: ${pkg.name}@${pkg.version}`)
+				firstReleases.push({
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion: pkg.version,
+					releaseType: 'patch', // Initial release marker
+					commits,
+				})
+			} else {
+				// Already published: calculate bump from npm version
 				contexts.push({
 					package: pkg,
 					commits,
@@ -199,7 +214,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 		}
 
-		if (contexts.length === 0) {
+		if (contexts.length === 0 && firstReleases.length === 0) {
 			consola.info('No new commits since last releases')
 
 			// Close existing PR if no changes
@@ -217,7 +232,8 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
+		// Combine first releases with calculated bumps
+		bumps = [...firstReleases, ...calculateMonorepoBumps(contexts, config, { gitRoot })]
 
 		// Cascade bump: find packages that depend on bumped packages
 		if (bumps.length > 0) {
@@ -290,11 +306,26 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		// Use npm version as current version (source of truth)
-		// This handles cases where package.json was modified by failed release PRs
-		const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
-		const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
-		if (bump) bumps = [bump]
+		// First release: use package.json version directly (developer's intent)
+		// Already published: use npm version as baseline (source of truth)
+		if (!npmVersion) {
+			consola.info(`First release: ${pkg.name}@${pkg.version}`)
+			bumps = [
+				{
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion: pkg.version,
+					releaseType: 'patch', // Initial release marker
+					commits,
+				},
+			]
+		} else {
+			// Use npm version as current version (source of truth)
+			// This handles cases where package.json was modified by failed release PRs
+			const pkgWithNpmVersion = { ...pkg, version: npmVersion }
+			const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
+			if (bump) bumps = [bump]
+		}
 	}
 
 	if (bumps.length === 0) {
