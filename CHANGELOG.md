@@ -1,5 +1,21 @@
 # @sylphx/bump
 
+## 0.6.2 (2025-11-27)
+
+### 🐛 Bug Fixes
+
+- **pr:** block local execution of bump pr command ([a9a5069](https://github.com/SylphxAI/bump/commit/a9a506917bfd2c4e1c50c0b5b2e1a40c46fc36e1))
+- **pr:** replace npm version with direct package.json update ([f0db4af](https://github.com/SylphxAI/bump/commit/f0db4afb4e0dae6a2b264c7da2eec6087751b0a7))
+
+### ⚡️ Performance
+
+- additional caching and parallelization ([5f42f25](https://github.com/SylphxAI/bump/commit/5f42f25350923982cc4050eac11b9bcdc86d9283))
+
+### 🔧 Chores
+
+- **deps:** add @sylphx/doctor to devDependencies ([a3fd621](https://github.com/SylphxAI/bump/commit/a3fd621f6ff0e3b06f98296937b364a164aca4b2))
+- **release:** @sylphx/bump@0.6.1 (#7) ([716cc64](https://github.com/SylphxAI/bump/commit/716cc64ba81ae8ddbcc9052b9d9e35abe99d0e0e))
+
 ## 0.6.1 (2025-11-26)
 
 ### 🐛 Bug Fixes
