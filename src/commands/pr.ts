@@ -292,7 +292,10 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		const bump = calculateSingleBump(pkg, commits, config)
+		// Use npm version as current version (source of truth)
+		// This handles cases where package.json was modified by failed release PRs
+		const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
+		const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
 		if (bump) bumps = [bump]
 	}
 
