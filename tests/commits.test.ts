@@ -4,7 +4,9 @@ import {
 	fileMatchesPackage,
 	filterCommitsForPackage,
 	groupCommitsByType,
+	groupCommitsByScope,
 	parseConventionalCommit,
+	getConventionalCommits,
 } from '../src/core/commits.ts'
 import type { BumpConfig, ConventionalCommit } from '../src/types.ts'
 
@@ -72,6 +74,35 @@ describe('commits', () => {
 			})
 
 			expect(result?.breaking).toBe(true)
+		})
+
+		it('should parse breaking change with hyphen in body', () => {
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'feat: add feature',
+				body: 'BREAKING-CHANGE: this breaks things',
+				author: 'test',
+				date: '2024-01-01',
+				files: [],
+			})
+
+			expect(result?.breaking).toBe(true)
+		})
+
+		it('should parse commit with scope and breaking !', () => {
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'feat(api)!: breaking api change',
+				body: '',
+				author: 'test',
+				date: '2024-01-01',
+				files: [],
+			})
+
+			expect(result?.type).toBe('feat')
+			expect(result?.scope).toBe('api')
+			expect(result?.breaking).toBe(true)
+			expect(result?.subject).toBe('breaking api change')
 		})
 
 		it('should return null for non-conventional commit', () => {
@@ -241,6 +272,66 @@ describe('commits', () => {
 		})
 	})
 
+	describe('groupCommitsByScope', () => {
+		it('should group commits by scope', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					scope: 'auth',
+					subject: 'feat 1',
+					breaking: false,
+					graduate: false,
+					raw: '',
+					files: [],
+				},
+				{
+					hash: '2',
+					type: 'fix',
+					scope: 'auth',
+					subject: 'fix 1',
+					breaking: false,
+					graduate: false,
+					raw: '',
+					files: [],
+				},
+				{
+					hash: '3',
+					type: 'feat',
+					scope: 'db',
+					subject: 'feat 2',
+					breaking: false,
+					graduate: false,
+					raw: '',
+					files: [],
+				},
+			]
+
+			const groups = groupCommitsByScope(commits)
+
+			expect(groups.get('auth')?.length).toBe(2)
+			expect(groups.get('db')?.length).toBe(1)
+		})
+
+		it('should use "other" for commits without scope', () => {
+			const commits: ConventionalCommit[] = [
+				{
+					hash: '1',
+					type: 'feat',
+					subject: 'feat 1',
+					breaking: false,
+					graduate: false,
+					raw: '',
+					files: [],
+				},
+			]
+
+			const groups = groupCommitsByScope(commits)
+
+			expect(groups.get('other')?.length).toBe(1)
+		})
+	})
+
 	describe('fileMatchesPackage', () => {
 		it('should match files within package directory', () => {
 			expect(fileMatchesPackage('packages/foo/src/index.ts', 'packages/foo')).toBe(true)
@@ -373,6 +464,103 @@ describe('commits', () => {
 			// @scope/foo should match scope 'foo'
 			const filtered = filterCommitsForPackage(commits, '@scope/foo', 'packages/foo')
 			expect(filtered.length).toBe(1)
+		})
+	})
+
+	describe('getConventionalCommits (integration)', () => {
+		it('should return conventional commits from git history', async () => {
+			// This test uses the actual bump repo
+			const commits = await getConventionalCommits()
+			expect(Array.isArray(commits)).toBe(true)
+			// The bump repo should have conventional commits
+			if (commits.length > 0) {
+				expect(commits[0]).toHaveProperty('type')
+				expect(commits[0]).toHaveProperty('subject')
+				expect(commits[0]).toHaveProperty('hash')
+			}
+		})
+
+		it('should filter out non-conventional commits', async () => {
+			const commits = await getConventionalCommits()
+			// All returned commits should have a type
+			for (const commit of commits) {
+				expect(commit.type).toBeDefined()
+				expect(commit.type.length).toBeGreaterThan(0)
+			}
+		})
+
+		it('should filter out release commits', async () => {
+			const commits = await getConventionalCommits()
+			// None of the commits should be release commits
+			for (const commit of commits) {
+				// Release commits have type 'chore' and scope 'release'
+				if (commit.type === 'chore' && commit.scope === 'release') {
+					// This would fail if release commits are not filtered
+					expect(true).toBe(false)
+				}
+			}
+		})
+
+		it('should work with a ref parameter', async () => {
+			// Get all commits first
+			const allCommits = await getConventionalCommits()
+			if (allCommits.length > 5) {
+				// Get commits since a recent commit
+				const ref = allCommits[4]?.hash
+				if (ref) {
+					const recentCommits = await getConventionalCommits(ref)
+					expect(recentCommits.length).toBeLessThanOrEqual(4)
+				}
+			}
+		})
+	})
+
+	describe('isReleaseCommit (via parseConventionalCommit)', () => {
+		// The isReleaseCommit function is internal, but we can test its behavior
+		// through getConventionalCommits which filters release commits
+
+		it('should identify chore(release) as release commit pattern', () => {
+			// This tests the pattern matching in parseConventionalCommit
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'chore(release): 1.0.0',
+				body: '',
+				author: 'test',
+				date: '2024-01-01',
+				files: [],
+			})
+
+			// The commit should be parsed successfully
+			expect(result?.type).toBe('chore')
+			expect(result?.scope).toBe('release')
+			expect(result?.subject).toBe('1.0.0')
+		})
+
+		it('should parse version-like subjects', () => {
+			// Test that version subjects are parsed
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'chore(release): v1.2.3',
+				body: '',
+				author: 'test',
+				date: '2024-01-01',
+				files: [],
+			})
+
+			expect(result?.subject).toBe('v1.2.3')
+		})
+
+		it('should parse scoped package version subjects', () => {
+			const result = parseConventionalCommit({
+				hash: 'abc123',
+				message: 'chore(release): @scope/pkg@1.0.0',
+				body: '',
+				author: 'test',
+				date: '2024-01-01',
+				files: [],
+			})
+
+			expect(result?.subject).toBe('@scope/pkg@1.0.0')
 		})
 	})
 })
