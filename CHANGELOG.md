@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 0.14.0 (2025-11-27)
+
+### ✨ Features
+
+- output version info from publish command for CI integration ([1f9a8cd](https://github.com/SylphxAI/bump/commit/1f9a8cded3e01dde97f6bbeaa5d101ac6c275f82))
+
 ## 0.13.2 (2025-11-27)
 
 ### ♻️ Refactoring
