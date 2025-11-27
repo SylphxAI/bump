@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import consola from 'consola'
 import { $ } from 'zx'
@@ -240,11 +240,28 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
+		// Create temporary .npmrc for authentication if NPM_TOKEN is set
+		const npmrcPath = join(pkgPath, '.npmrc')
+		const existingNpmrc = existsSync(npmrcPath) ? readFileSync(npmrcPath, 'utf-8') : null
+		if (process.env.NPM_TOKEN) {
+			writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${process.env.NPM_TOKEN}\n`)
+		}
+
 		// Use npm publish (universal across all package managers)
-		const env = process.env.NPM_TOKEN
-			? { ...process.env, NPM_CONFIG_TOKEN: process.env.NPM_TOKEN }
-			: process.env
-		const publishResult = await $({ cwd: pkgPath, env })`npm publish --access public`.nothrow()
+		const publishResult = await $({ cwd: pkgPath })`npm publish --access public`.nothrow()
+
+		// Restore original .npmrc or remove temporary one
+		if (process.env.NPM_TOKEN) {
+			if (existingNpmrc !== null) {
+				writeFileSync(npmrcPath, existingNpmrc)
+			} else {
+				try {
+					unlinkSync(npmrcPath)
+				} catch {
+					// Ignore cleanup errors
+				}
+			}
+		}
 
 		if (publishResult.exitCode !== 0) {
 			consola.error(`  Failed to publish ${bump.package}: ${publishResult.stderr}`)
