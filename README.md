@@ -19,11 +19,16 @@ Automatic versioning and publishing for npm packages. Zero config, just commits.
 | **Workflow** | Just commit | Create changeset file per change |
 | **Version control** | Automatic from commits | Manual per-changeset |
 | **Learning curve** | Know conventional commits? Done | New syntax + tooling |
-| **PR noise** | 1 release PR | 1 changeset PR per change |
+| **PR noise** | 1 release PR | 1 changeset file per change |
+| **Fine-grained control** | Via commit message | Via changeset file |
 
-**bump** is for teams who want releases to "just work" based on commit messages.
+Both tools support fine-grained version control - the difference is **where** you express it:
 
-**changesets** is for teams who need fine-grained control over every version bump.
+- **bump**: Control versions through commit messages (`feat:` = minor, `fix:` = patch, `feat!:` = major)
+- **changesets**: Control versions through separate changeset files
+
+Choose **bump** if you prefer keeping version intent in your git history.
+Choose **changesets** if you prefer separate files for release notes.
 
 ## How It Works
 
