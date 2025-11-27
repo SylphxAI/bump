@@ -8,11 +8,11 @@ branding:
 
 inputs:
   mode:
-    description: 'Mode: "auto" (default), "release", "version", or "pr". Auto mode creates PR on normal commits, publishes on release commits.'
+    description: 'Mode: "auto" (default), "release", "version", or "pr"'
     required: false
     default: 'auto'
   base-branch:
-    description: 'Base branch for PR mode (default: main)'
+    description: 'Base branch for PR mode'
     required: false
     default: 'main'
   dry-run:
@@ -42,19 +42,16 @@ inputs:
     description: 'Create GitHub release'
     required: false
     default: 'true'
-  commit-message:
-    description: 'Custom commit message for version bump'
-    required: false
   working-directory:
     description: 'Working directory for the action'
     required: false
     default: '.'
   skip-install:
-    description: 'Skip installing bump CLI (for dogfooding with local build)'
+    description: 'Skip installing bump CLI'
     required: false
     default: 'false'
   cli-path:
-    description: 'Path to bump CLI (for dogfooding with local build)'
+    description: 'Path to bump CLI'
     required: false
     default: 'bump'
 
@@ -63,123 +60,184 @@ outputs:
     description: 'Whether packages were published'
     value: ${{ steps.bump.outputs.published }}
   version:
-    description: 'The new version (for single package repos)'
+    description: 'The new version (single package)'
     value: ${{ steps.bump.outputs.version }}
   versions:
-    description: 'JSON object of package versions (for monorepos)'
+    description: 'JSON object of package versions (monorepo)'
     value: ${{ steps.bump.outputs.versions }}
 
 runs:
   using: 'composite'
   steps:
-    - name: Setup Bun
+    - name: Setup Bun with cache
       uses: oven-sh/setup-bun@v2
       with:
         bun-version: latest
+
+    - name: Cache bun dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.bun/install/cache
+          node_modules
+          */node_modules
+        key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+        restore-keys: |
+          bun-${{ runner.os }}-
 
     - name: Install bump CLI
       if: inputs.skip-install != 'true'
       shell: bash
       run: bun add -g @sylphx/bump
 
-    - name: Configure npm authentication
-      if: inputs.npm-token != ''
-      shell: bash
-      run: echo "//registry.npmjs.org/:_authToken=${{ inputs.npm-token }}" > ~/.npmrc
-
-    - name: Configure git
-      if: inputs.mode == 'pr' || inputs.mode == 'auto'
-      shell: bash
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-
-    - name: Run bump
+    - name: Run bump and publish
       id: bump
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
         BUMP_CLI: ${{ inputs.cli-path }}
         COMMIT_MSG: ${{ github.event.head_commit.message }}
       run: |
-        # Determine effective mode
-        MODE="${{ inputs.mode }}"
-        IS_RELEASE_COMMIT=false
+        set -euo pipefail
 
+        # Setup
+        [ -n "${NPM_TOKEN:-}" ] && echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        git config user.name "github-actions[bot]" 2>/dev/null || true
+        git config user.email "github-actions[bot]@users.noreply.github.com" 2>/dev/null || true
+
+        # Determine mode
+        MODE="${{ inputs.mode }}"
         if [ "$MODE" = "auto" ]; then
-          if [ -z "$COMMIT_MSG" ]; then
+          if [ -z "${COMMIT_MSG:-}" ]; then
             MODE="publish"
-            echo "Auto mode: manual trigger, publishing..."
           elif [[ "$COMMIT_MSG" == *"chore(release):"* ]]; then
             MODE="publish"
-            IS_RELEASE_COMMIT=true
-            echo "Auto mode: detected release commit, publishing directly..."
           else
             MODE="pr"
-            echo "Auto mode: normal commit, creating/updating PR..."
           fi
         fi
 
+        # PR mode
         if [ "$MODE" = "pr" ]; then
           args="pr --base ${{ inputs.base-branch }}"
           [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
-          echo "Running: $BUMP_CLI $args"
           $BUMP_CLI $args
           echo "published=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
 
-        elif [ "$MODE" = "publish" ] || [ "$IS_RELEASE_COMMIT" = "true" ]; then
-          # Check if monorepo
-          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null)
+        # Publish mode
+        if [ "$MODE" = "publish" ]; then
+          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null || true)
 
           if [ -n "$WORKSPACES" ]; then
+            # === MONOREPO ===
             echo "Monorepo publish mode..."
-            VERSIONS_JSON="{}"
 
-            # Single pass: collect all package info with one jq call per package
+            # Install dependencies once
+            bun install --frozen-lockfile 2>/dev/null || bun install
+
+            # Pre-fetch tags once
+            EXISTING_TAGS=$(git tag -l)
+            VERSIONS_JSON="{}"
+            PIDS=""
+            declare -a PACKAGES=()
+
+            # Collect info + parallel publish
             for pattern in $WORKSPACES; do
               for pkg_dir in $pattern; do
                 [ -f "$pkg_dir/package.json" ] || continue
-                # Single jq call for all fields
                 read -r PKG_NAME PKG_VERSION PKG_PRIVATE <<< $(jq -r '[.name, .version, (.private // false)] | @tsv' "$pkg_dir/package.json")
-                if [ "$PKG_PRIVATE" = "false" ]; then
-                  echo "Package: $PKG_NAME@$PKG_VERSION"
-                  VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
+
+                [ "$PKG_PRIVATE" = "false" ] || continue
+
+                echo "Package: $PKG_NAME@$PKG_VERSION"
+                PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
+                VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
+
+                # Parallel publish (background)
+                (
+                  cd "$pkg_dir"
+                  echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+                  bun publish --access public 2>&1 | sed "s/^/[$PKG_NAME] /"
+                  rm -f .npmrc
+                ) &
+                PIDS="$PIDS $!"
+
+                # Create tag if not exists
+                if [ "${{ inputs.tag }}" = "true" ]; then
+                  TAG="${PKG_NAME}@${PKG_VERSION}"
+                  echo "$EXISTING_TAGS" | grep -qx "$TAG" || git tag -a "$TAG" -m "Release $TAG"
                 fi
               done
             done
 
+            # Wait for all publishes
+            echo "Waiting for parallel publishes..."
+            for pid in $PIDS; do wait $pid || true; done
+
+            # Push tags once
+            [ "${{ inputs.tag }}" = "true" ] && git push --tags 2>/dev/null || true
+
+            # Parallel GitHub releases
+            if [ "${{ inputs.github-release }}" = "true" ]; then
+              echo "Creating GitHub releases in parallel..."
+              RELEASE_PIDS=""
+              for pkg_info in "${PACKAGES[@]}"; do
+                IFS='|' read -r pkg_dir PKG_NAME PKG_VERSION <<< "$pkg_info"
+                TAG="${PKG_NAME}@${PKG_VERSION}"
+                (
+                  CHANGELOG_FILE="$pkg_dir/CHANGELOG.md"
+                  if [ -f "$CHANGELOG_FILE" ]; then
+                    NOTES=$(awk -v ver="$PKG_VERSION" '/^## / { if (f) exit; if ($0 ~ ver) f=1; next } f { print }' "$CHANGELOG_FILE")
+                    [ -n "$NOTES" ] && echo "$NOTES" | gh release create "$TAG" --title "$TAG" --notes-file - 2>/dev/null || gh release create "$TAG" --title "$TAG" --generate-notes 2>/dev/null || true
+                  else
+                    gh release create "$TAG" --title "$TAG" --generate-notes 2>/dev/null || true
+                  fi
+                ) &
+                RELEASE_PIDS="$RELEASE_PIDS $!"
+              done
+              for pid in $RELEASE_PIDS; do wait $pid || true; done
+            fi
+
             echo "versions=$VERSIONS_JSON" >> $GITHUB_OUTPUT
             [ "${{ inputs.dry-run }}" = "true" ] && echo "published=false" >> $GITHUB_OUTPUT || echo "published=true" >> $GITHUB_OUTPUT
+
           else
-            # Single package: one jq call
+            # === SINGLE PACKAGE ===
             read -r PKG_NAME VERSION <<< $(jq -r '[.name, .version] | @tsv' package.json)
             echo "Package: $PKG_NAME@$VERSION"
             echo "version=$VERSION" >> $GITHUB_OUTPUT
 
             if [ "${{ inputs.dry-run }}" = "true" ]; then
-              echo "Dry run - would publish $PKG_NAME@$VERSION"
               echo "published=false" >> $GITHUB_OUTPUT
-            else
-              # Create tag if not exists
-              if [ "${{ inputs.tag }}" = "true" ]; then
-                TAG="v$VERSION"
-                git tag -l "$TAG" | grep -q . || { git tag -a "$TAG" -m "Release $TAG" && git push origin "$TAG"; }
-              fi
-
-              # Create GitHub release
-              if [ "${{ inputs.github-release }}" = "true" ]; then
-                echo "Creating GitHub release..."
-                if [ -f "CHANGELOG.md" ]; then
-                  RELEASE_NOTES=$(awk -v ver="$VERSION" '/^## / { if (found) exit; if ($0 ~ ver) found=1; next } found { print }' CHANGELOG.md)
-                  [ -n "$RELEASE_NOTES" ] && echo "$RELEASE_NOTES" | gh release create "v$VERSION" --title "v$VERSION" --notes-file - || gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
-                else
-                  gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
-                fi
-              fi
-              echo "published=true" >> $GITHUB_OUTPUT
+              exit 0
             fi
+
+            # Install + publish
+            bun install --frozen-lockfile 2>/dev/null || bun install
+            bun publish --access public
+
+            # Tag
+            if [ "${{ inputs.tag }}" = "true" ]; then
+              TAG="v$VERSION"
+              git tag -l "$TAG" | grep -q . || { git tag -a "$TAG" -m "Release $TAG" && git push origin "$TAG"; }
+            fi
+
+            # GitHub release
+            if [ "${{ inputs.github-release }}" = "true" ]; then
+              if [ -f "CHANGELOG.md" ]; then
+                NOTES=$(awk -v ver="$VERSION" '/^## / { if (f) exit; if ($0 ~ ver) f=1; next } f { print }' CHANGELOG.md)
+                [ -n "$NOTES" ] && echo "$NOTES" | gh release create "v$VERSION" --title "v$VERSION" --notes-file - || gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+              else
+                gh release create "v$VERSION" --title "v$VERSION" --generate-notes || true
+              fi
+            fi
+
+            echo "published=true" >> $GITHUB_OUTPUT
           fi
 
         else
@@ -190,84 +248,14 @@ runs:
           [ "${{ inputs.changelog }}" = "false" ] && args="$args --no-changelog"
           [ "${{ inputs.github-release }}" = "false" ] && args="$args --no-release"
 
-          echo "Running: $BUMP_CLI $args"
           $BUMP_CLI $args
 
-          [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ] && echo "published=true" >> $GITHUB_OUTPUT || echo "published=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Install dependencies
-      if: steps.bump.outputs.published == 'true' && inputs.npm-token != ''
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: bun install --frozen-lockfile
-
-    - name: Publish to npm
-      if: steps.bump.outputs.published == 'true' && inputs.npm-token != ''
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      env:
-        NPM_TOKEN: ${{ inputs.npm-token }}
-        GH_TOKEN: ${{ inputs.github-token }}
-      run: |
-        echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-
-        if [ -f "package.json" ]; then
-          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null)
-
-          if [ -n "$WORKSPACES" ]; then
-            echo "Monorepo detected, publishing workspace packages..."
-
-            # Pre-fetch all existing tags once
-            EXISTING_TAGS=$(git tag -l)
-
-            # Collect package info and publish in single pass
-            declare -a PACKAGES=()
-            for pattern in $WORKSPACES; do
-              for pkg_dir in $pattern; do
-                [ -f "$pkg_dir/package.json" ] || continue
-                # Single jq call
-                read -r PKG_NAME PKG_VERSION PKG_PRIVATE <<< $(jq -r '[.name, .version, (.private // false)] | @tsv' "$pkg_dir/package.json")
-
-                if [ "$PKG_PRIVATE" = "false" ]; then
-                  PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
-
-                  # Publish
-                  echo "Publishing $PKG_NAME@$PKG_VERSION..."
-                  (cd "$pkg_dir" && echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc && bun publish --access public && rm -f .npmrc) || true
-
-                  # Create tag if not exists (check cached list)
-                  if [ "${{ inputs.tag }}" = "true" ]; then
-                    TAG="${PKG_NAME}@${PKG_VERSION}"
-                    echo "$EXISTING_TAGS" | grep -q "^${TAG}$" || git tag -a "$TAG" -m "Release $TAG"
-                  fi
-                fi
-              done
-            done
-
-            # Push all tags at once
-            [ "${{ inputs.tag }}" = "true" ] && git push --tags || true
-
-            # Create GitHub releases (reuse collected package info)
-            if [ "${{ inputs.github-release }}" = "true" ]; then
-              echo "Creating GitHub releases..."
-              for pkg_info in "${PACKAGES[@]}"; do
-                IFS='|' read -r pkg_dir PKG_NAME PKG_VERSION <<< "$pkg_info"
-                TAG="${PKG_NAME}@${PKG_VERSION}"
-                echo "Creating release for $TAG..."
-
-                CHANGELOG_FILE="$pkg_dir/CHANGELOG.md"
-                if [ -f "$CHANGELOG_FILE" ]; then
-                  RELEASE_NOTES=$(awk -v ver="$PKG_VERSION" '/^## / { if (found) exit; if ($0 ~ ver) found=1; next } found { print }' "$CHANGELOG_FILE")
-                  [ -n "$RELEASE_NOTES" ] && echo "$RELEASE_NOTES" | gh release create "$TAG" --title "$TAG" --notes-file - || gh release create "$TAG" --title "$TAG" --generate-notes || true
-                else
-                  gh release create "$TAG" --title "$TAG" --generate-notes || true
-                fi
-              done
-            fi
-          else
-            echo "Publishing single package..."
+          if [ "${{ inputs.dry-run }}" = "false" ] && [ "${{ inputs.publish }}" = "true" ]; then
+            bun install --frozen-lockfile 2>/dev/null || bun install
             bun publish --access public
+            echo "published=true" >> $GITHUB_OUTPUT
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
           fi
         fi
 
