@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 0.13.2 (2025-11-27)
+
+### ♻️ Refactoring
+
+- code cleanup from review ([08ab676](https://github.com/SylphxAI/bump/commit/08ab67608101ebd1567c8199a29cffb2dd0d2942))
+
 ## 0.13.1 (2025-11-27)
 
 ### ♻️ Refactoring

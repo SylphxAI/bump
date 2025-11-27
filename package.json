@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/bump",
-	"version": "0.13.1",
+	"version": "0.13.2",
 	"description": "Modern changelog and release management for Bun",
 	"type": "module",
 	"exports": {
