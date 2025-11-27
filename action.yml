@@ -99,7 +99,6 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
         NPM_TOKEN: ${{ inputs.npm-token }}
         BUMP_CLI: ${{ inputs.cli-path }}
-        COMMIT_MSG: ${{ github.event.head_commit.message }}
       run: |
         set -euo pipefail
 
@@ -108,16 +107,50 @@ runs:
         git config user.name "github-actions[bot]" 2>/dev/null || true
         git config user.email "github-actions[bot]@users.noreply.github.com" 2>/dev/null || true
 
-        # Determine mode
+        # Determine mode (auto detection based on author + version mismatch)
         MODE="${{ inputs.mode }}"
         if [ "$MODE" = "auto" ]; then
-          if [ -z "${COMMIT_MSG:-}" ]; then
-            MODE="publish"
-          elif [[ "$COMMIT_MSG" == *"chore(release):"* ]]; then
-            MODE="publish"
-          else
-            MODE="pr"
+          MODE="pr"  # Default to PR mode
+
+          # Check 1: Must be bot commit (prevents LLM/human accidental publish)
+          AUTHOR=$(git log -1 --format='%an')
+          if [ "$AUTHOR" = "github-actions[bot]" ]; then
+            # Check 2: Any package has unpublished version?
+            WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null || true)
+
+            if [ -n "$WORKSPACES" ]; then
+              # Monorepo: check any package
+              for pattern in $WORKSPACES; do
+                for pkg_dir in $pattern; do
+                  [ -f "$pkg_dir/package.json" ] || continue
+                  PKG_NAME=$(jq -r '.name // empty' "$pkg_dir/package.json")
+                  PKG_PRIVATE=$(jq -r '.private // false' "$pkg_dir/package.json")
+                  LOCAL_VER=$(jq -r '.version // "0.0.0"' "$pkg_dir/package.json")
+                  [ "$PKG_PRIVATE" = "true" ] && continue
+                  [ -z "$PKG_NAME" ] && continue
+                  NPM_VER=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+                  if [ "$LOCAL_VER" != "$NPM_VER" ]; then
+                    MODE="publish"
+                    echo "Version mismatch: $PKG_NAME local=$LOCAL_VER npm=$NPM_VER"
+                    break 2
+                  fi
+                done
+              done
+            else
+              # Single package
+              PKG_NAME=$(jq -r '.name // empty' package.json)
+              LOCAL_VER=$(jq -r '.version // "0.0.0"' package.json)
+              if [ -n "$PKG_NAME" ]; then
+                NPM_VER=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+                if [ "$LOCAL_VER" != "$NPM_VER" ]; then
+                  MODE="publish"
+                  echo "Version mismatch: $PKG_NAME local=$LOCAL_VER npm=$NPM_VER"
+                fi
+              fi
+            fi
           fi
+
+          echo "Auto-detected mode: $MODE (author=$AUTHOR)"
         fi
 
         # PR mode
