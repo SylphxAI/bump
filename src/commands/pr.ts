@@ -350,11 +350,6 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	// Check for existing PR
 	const existingPr = await findReleasePr()
 
-	// Write bumps to .bump-pending.json (will be merged into main, triggers publish)
-	const bumpsFile = join(cwd, '.bump-pending.json')
-	const { writeFileSync } = await import('node:fs')
-	writeFileSync(bumpsFile, JSON.stringify(bumps, null, '\t'))
-
 	try {
 		if (existingPr) {
 			// Update existing PR
@@ -365,10 +360,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git checkout -B ${PR_BRANCH}`
 			await $`git reset --hard origin/${baseBranch}`
 
-			// Only commit .bump-pending.json - NO package.json or CHANGELOG changes
-			// Those happen during publish after merge succeeds
-			await $`git add .bump-pending.json`
-			await $`git commit -m ${prTitle} --allow-empty`
+			// PR is preview-only - no file changes needed
+			// Actual version bump happens during publish after merge
+			await $`git commit --allow-empty -m ${prTitle}`
 			await $`git push -f origin ${PR_BRANCH}`
 
 			// Update PR
@@ -388,10 +382,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Create branch (force to overwrite if exists locally)
 			await $`git checkout -B ${PR_BRANCH}`
 
-			// Only commit .bump-pending.json - NO package.json or CHANGELOG changes
-			// Those happen during publish after merge succeeds
-			await $`git add .bump-pending.json`
-			await $`git commit -m ${prTitle}`
+			// PR is preview-only - no file changes needed
+			// Actual version bump happens during publish after merge
+			await $`git commit --allow-empty -m ${prTitle}`
 			await $`git push -f -u origin ${PR_BRANCH}`
 
 			// Create PR (or get existing if branch already has PR)

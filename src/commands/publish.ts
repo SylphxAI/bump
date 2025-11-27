@@ -1,19 +1,32 @@
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { $ } from 'bun'
 import consola from 'consola'
 import pc from 'picocolors'
 import {
+	type MonorepoBumpContext,
+	calculateCascadeBumps,
+	calculateMonorepoBumps,
+	calculateSingleBump,
 	discoverPackages,
 	generateChangelogEntry,
+	getConventionalCommits,
+	getSinglePackage,
+	incrementVersion,
 	isMonorepo,
 	loadConfig,
 	updateChangelog,
 } from '../core/index.ts'
-import { getGitHubRepoUrl } from '../utils/git.ts'
 import type { VersionBump } from '../types.ts'
-
-const PENDING_FILE = '.bump-pending.json'
+import {
+	findTagForVersion,
+	getAllTags,
+	getGitHubRepoUrl,
+	getGitRoot,
+	getLatestTag,
+	getLatestTagForPackage,
+} from '../utils/git.ts'
+import { getNpmPublishedVersion } from '../utils/npm.ts'
 
 /**
  * Update package.json version directly
@@ -33,26 +46,130 @@ export interface PublishOptions {
 }
 
 /**
- * Publish packages from .bump-pending.json
- * This runs after PR merge - applies version changes, publishes, then commits
+ * Publish packages - recalculates bumps fresh from npm baseline
+ * This runs after PR merge - calculates version changes, publishes, then commits
  */
 export async function runPublish(options: PublishOptions = {}): Promise<boolean> {
 	const cwd = options.cwd ?? process.cwd()
-	const pendingFile = join(cwd, PENDING_FILE)
 
-	// Check for pending bumps
-	if (!existsSync(pendingFile)) {
-		consola.info('No .bump-pending.json found - nothing to publish')
-		return false
+	consola.start('Calculating version bumps from npm baseline...')
+
+	// Load config and determine package structure
+	const [config, gitRoot] = await Promise.all([loadConfig(cwd), getGitRoot()])
+	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
+
+	// Calculate bumps fresh (same logic as pr.ts)
+	let bumps: VersionBump[] = []
+
+	if (packages.length > 0) {
+		// Pre-fetch all tags once for reuse
+		const allTags = await getAllTags()
+
+		// Process all packages in parallel - use npm published version as baseline
+		const packageResults = await Promise.all(
+			packages.map(async (pkg) => {
+				// Query npm for the latest published version (source of truth)
+				const npmVersion = await getNpmPublishedVersion(pkg.name)
+
+				// Find the git tag corresponding to that npm version
+				let baselineTag: string | null = null
+				if (npmVersion) {
+					baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
+				}
+
+				// Fall back to latest git tag if npm version not found or tag missing
+				if (!baselineTag) {
+					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
+				}
+
+				const commits = await getConventionalCommits(baselineTag ?? undefined)
+				return { pkg, baselineTag, npmVersion, commits }
+			})
+		)
+
+		// Build contexts from parallel results
+		const contexts: MonorepoBumpContext[] = []
+		for (const { pkg, baselineTag, commits } of packageResults) {
+			if (commits.length > 0) {
+				contexts.push({
+					package: pkg,
+					commits,
+					latestTag: baselineTag,
+				})
+			}
+		}
+
+		if (contexts.length === 0) {
+			consola.info('No new commits since last releases - nothing to publish')
+			return false
+		}
+
+		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
+
+		// Cascade bump: find packages that depend on bumped packages
+		if (bumps.length > 0) {
+			const bumpedVersions = new Map(bumps.map((b) => [b.package, b.newVersion]))
+			const bumpedNames = new Set(bumpedVersions.keys())
+			const cascadePackages = calculateCascadeBumps(packages, bumpedNames)
+
+			for (const pkg of cascadePackages) {
+				const allDeps = { ...pkg.dependencies, ...pkg.devDependencies }
+				const updatedDeps: Array<{ name: string; version: string }> = []
+				for (const [depName, newVersion] of bumpedVersions) {
+					if (depName in allDeps) {
+						updatedDeps.push({ name: depName, version: newVersion })
+					}
+				}
+
+				const newVersion = incrementVersion(pkg.version, 'patch')
+				bumps.push({
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion,
+					releaseType: 'patch',
+					commits: [],
+					updatedDeps,
+				})
+			}
+		}
+	} else {
+		// Single package mode - use npm published version as baseline
+		const pkg = getSinglePackage(cwd)
+		if (!pkg) {
+			consola.error('No package.json found')
+			return false
+		}
+
+		// Query npm for the latest published version (source of truth)
+		const npmVersion = await getNpmPublishedVersion(pkg.name)
+		const allTags = await getAllTags()
+
+		// Find the git tag corresponding to that npm version
+		let baselineTag: string | null = null
+		if (npmVersion) {
+			baselineTag = findTagForVersion(npmVersion, allTags)
+		}
+
+		// Fall back to latest git tag if npm version not found or tag missing
+		if (!baselineTag) {
+			baselineTag = await getLatestTag()
+		}
+
+		const commits = await getConventionalCommits(baselineTag ?? undefined)
+
+		if (commits.length === 0) {
+			consola.info('No new commits since last release - nothing to publish')
+			return false
+		}
+
+		// Use npm version as current version (source of truth)
+		const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
+		const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
+		if (bump) bumps = [bump]
 	}
 
-	// Read pending bumps
-	const bumpsJson = readFileSync(pendingFile, 'utf-8')
-	const bumps: VersionBump[] = JSON.parse(bumpsJson)
-
 	if (bumps.length === 0) {
-		consola.info('No bumps pending')
-		unlinkSync(pendingFile)
+		consola.info('No version bumps needed')
 		return false
 	}
 
@@ -73,9 +190,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 		return false
 	}
 
-	const config = await loadConfig(cwd)
 	const repoUrl = await getGitHubRepoUrl()
-	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
 	// Step 1: Apply version changes and update changelogs
 	consola.start('Applying version changes...')
@@ -152,13 +267,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 	}
 	await $`git push --tags`
 
-	// Step 6: Cleanup .bump-pending.json
-	unlinkSync(pendingFile)
-	await $`git add ${PENDING_FILE}`.quiet().nothrow()
-	await $`git commit -m "chore: cleanup .bump-pending.json"`.quiet().nothrow()
-	await $`git push`.quiet().nothrow()
-
-	// Step 7: Create GitHub releases
+	// Step 6: Create GitHub releases
 	consola.start('Creating GitHub releases...')
 	for (const pkg of publishedPackages) {
 		const tag = packages.length > 0 ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`

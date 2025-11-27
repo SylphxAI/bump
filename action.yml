@@ -91,25 +91,23 @@ runs:
         git config user.email "github-actions[bot]@users.noreply.github.com" 2>/dev/null || true
 
         # Determine mode
-        # - If .bump-pending.json exists → publish mode (PR was merged)
+        # - If latest commit is from release PR merge (chore(release): prefix) → publish mode
         # - Otherwise → pr mode (create/update release PR)
         MODE="${{ inputs.mode }}"
         if [ "$MODE" = "auto" ]; then
-          if [ -f ".bump-pending.json" ]; then
-            BUMP_COUNT=$(jq 'length' .bump-pending.json 2>/dev/null || echo "0")
-            if [ "$BUMP_COUNT" -gt 0 ]; then
-              MODE="publish"
-              echo "Found .bump-pending.json with $BUMP_COUNT package(s) - switching to publish mode"
-            else
-              MODE="pr"
-            fi
+          # Check if latest commit message starts with "chore(release):"
+          # This indicates a release PR was just merged
+          LATEST_COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
+          if [[ "$LATEST_COMMIT_MSG" == chore\(release\):* ]]; then
+            MODE="publish"
+            echo "Detected release PR merge - switching to publish mode"
           else
             MODE="pr"
           fi
           echo "Auto-detected mode: $MODE"
         fi
 
-        # PR mode - create/update release PR (no package.json changes)
+        # PR mode - create/update release PR (preview only)
         if [ "$MODE" = "pr" ]; then
           args="pr --base ${{ inputs.base-branch }}"
           [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
@@ -118,7 +116,7 @@ runs:
           exit 0
         fi
 
-        # Publish mode - apply changes and publish (only after PR merge)
+        # Publish mode - recalculate bumps and publish (only after PR merge)
         if [ "$MODE" = "publish" ]; then
           args="publish"
           [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
