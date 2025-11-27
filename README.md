@@ -7,7 +7,8 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 - **Fully semantic** - Conventional commits → semantic versions, automatically
 - **Zero config** - Works out of the box, no setup required
 - **Automatic Release PRs** - Preview changes before publishing
-- **Monorepo support** - File-based package detection, independent versioning
+- **Monorepo native** - File-based detection, independent versioning, cascade bumps
+- **Workspace protocol** - Auto-resolves `workspace:*` dependencies at publish time
 - **Pre-releases** - Alpha, beta, RC with single flag
 - **Cross-platform** - Works with npm, yarn, pnpm, and bun
 - **GitHub integration** - Auto-creates releases and changelogs
@@ -22,6 +23,8 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 | **Learning curve** | Know conventional commits? Done | New syntax + tooling |
 | **PR noise** | 1 release PR | 1 changeset file per change |
 | **Fine-grained control** | Via commit message | Via changeset file |
+| **Workspace protocol** | Auto-resolved | Manual handling required |
+| **Cascade bumps** | Automatic | Manual configuration |
 
 Both tools support fine-grained version control - the difference is **where** you express it:
 
