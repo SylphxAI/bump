@@ -190,10 +190,22 @@ export function calculateSingleBump(
 		releaseType = preReleaseMap[releaseType] ?? releaseType
 	}
 
+	// Check for graduation (0.x → 1.0.0)
+	const shouldGraduate = commits.some((c) => c.graduate)
+	const isZeroVersion = semver.major(pkg.version) === 0
+
+	let newVersion: string
+	if (shouldGraduate && isZeroVersion) {
+		newVersion = '1.0.0'
+		releaseType = 'major' // Mark as major for changelog
+	} else {
+		newVersion = incrementVersion(pkg.version, releaseType, preid)
+	}
+
 	return {
 		package: pkg.name,
 		currentVersion: pkg.version,
-		newVersion: incrementVersion(pkg.version, releaseType, preid),
+		newVersion,
 		releaseType,
 		commits,
 	}
@@ -247,10 +259,22 @@ export function calculateMonorepoBumps(
 				releaseType = preReleaseMap[releaseType] ?? releaseType
 			}
 
+			// Check for graduation (0.x → 1.0.0)
+			const shouldGraduate = relevantCommits.some((c) => c.graduate)
+			const isZeroVersion = semver.major(ctx.package.version) === 0
+
+			let newVersion: string
+			if (shouldGraduate && isZeroVersion) {
+				newVersion = '1.0.0'
+				releaseType = 'major' // Mark as major for changelog
+			} else {
+				newVersion = incrementVersion(ctx.package.version, releaseType, preid)
+			}
+
 			bumps.push({
 				package: ctx.package.name,
 				currentVersion: ctx.package.version,
-				newVersion: incrementVersion(ctx.package.version, releaseType, preid),
+				newVersion,
 				releaseType,
 				commits: relevantCommits,
 			})

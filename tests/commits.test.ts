@@ -26,7 +26,8 @@ describe('commits', () => {
 				scope: undefined,
 				subject: 'add new feature',
 				body: undefined,
-				breaking: false,
+				breaking: false, graduate: false,
+				graduate: false,
 				raw: 'feat: add new feature',
 				files: [],
 			})
@@ -117,7 +118,7 @@ describe('commits', () => {
 					hash: 'abc',
 					type: 'feat',
 					subject: 'breaking',
-					breaking: true,
+					breaking: true, graduate: false,
 					raw: 'feat!: breaking',
 					files: [],
 				},
@@ -132,7 +133,7 @@ describe('commits', () => {
 					hash: 'abc',
 					type: 'feat',
 					subject: 'feature',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: 'feat: feature',
 					files: [],
 				},
@@ -147,7 +148,7 @@ describe('commits', () => {
 					hash: 'abc',
 					type: 'fix',
 					subject: 'fix',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: 'fix: fix',
 					files: [],
 				},
@@ -158,8 +159,8 @@ describe('commits', () => {
 
 		it('should return highest type from multiple commits', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: '1', type: 'fix', subject: 'fix', breaking: false, raw: 'fix: fix', files: [] },
-				{ hash: '2', type: 'feat', subject: 'feat', breaking: false, raw: 'feat: feat', files: [] },
+				{ hash: '1', type: 'fix', subject: 'fix', breaking: false, graduate: false, raw: 'fix: fix', files: [] },
+				{ hash: '2', type: 'feat', subject: 'feat', breaking: false, graduate: false, raw: 'feat: feat', files: [] },
 			]
 
 			expect(determineReleaseType(commits, config)).toBe('minor')
@@ -171,7 +172,7 @@ describe('commits', () => {
 					hash: 'abc',
 					type: 'docs',
 					subject: 'docs',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: 'docs: docs',
 					files: [],
 				},
@@ -184,9 +185,9 @@ describe('commits', () => {
 	describe('groupCommitsByType', () => {
 		it('should group commits by type', () => {
 			const commits: ConventionalCommit[] = [
-				{ hash: '1', type: 'feat', subject: 'feat 1', breaking: false, raw: '', files: [] },
-				{ hash: '2', type: 'fix', subject: 'fix 1', breaking: false, raw: '', files: [] },
-				{ hash: '3', type: 'feat', subject: 'feat 2', breaking: false, raw: '', files: [] },
+				{ hash: '1', type: 'feat', subject: 'feat 1', breaking: false, graduate: false, raw: '', files: [] },
+				{ hash: '2', type: 'fix', subject: 'fix 1', breaking: false, graduate: false, raw: '', files: [] },
+				{ hash: '3', type: 'feat', subject: 'feat 2', breaking: false, graduate: false, raw: '', files: [] },
 			]
 
 			const groups = groupCommitsByType(commits)
@@ -227,7 +228,7 @@ describe('commits', () => {
 					hash: '1',
 					type: 'feat',
 					subject: 'feat for foo',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: ['packages/foo/src/index.ts'],
 				},
@@ -235,7 +236,7 @@ describe('commits', () => {
 					hash: '2',
 					type: 'fix',
 					subject: 'fix for bar',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: ['packages/bar/src/index.ts'],
 				},
@@ -243,7 +244,7 @@ describe('commits', () => {
 					hash: '3',
 					type: 'feat',
 					subject: 'feat for foo',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: ['packages/foo/package.json'],
 				},
@@ -260,7 +261,7 @@ describe('commits', () => {
 					hash: '1',
 					type: 'feat',
 					subject: 'global feature',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: ['README.md'], // File not in packages/foo
 				},
@@ -277,7 +278,7 @@ describe('commits', () => {
 					hash: '1',
 					type: 'feat',
 					subject: 'global feature',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: [], // No file info available
 				},
@@ -295,7 +296,7 @@ describe('commits', () => {
 					type: 'feat',
 					scope: 'foo',
 					subject: 'feat for foo',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: [],
 				},
@@ -312,7 +313,7 @@ describe('commits', () => {
 					type: 'feat',
 					scope: 'foo',
 					subject: 'feat for foo',
-					breaking: false,
+					breaking: false, graduate: false,
 					raw: '',
 					files: [],
 				},

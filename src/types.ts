@@ -85,6 +85,8 @@ export interface ConventionalCommit {
 	subject: string
 	body?: string
 	breaking: boolean
+	/** Graduate from 0.x to 1.0.0 */
+	graduate: boolean
 	raw: string
 	/** Files changed in this commit */
 	files: string[]

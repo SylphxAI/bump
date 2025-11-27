@@ -62,6 +62,10 @@ const bump = defineCommand({
 			type: 'boolean',
 			description: 'Create release candidate (shorthand for --preid rc)',
 		},
+		graduate: {
+			type: 'boolean',
+			description: 'Graduate from 0.x to 1.0.0 (stable release)',
+		},
 	},
 	subCommands: {
 		init: defineCommand({

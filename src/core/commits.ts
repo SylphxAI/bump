@@ -20,6 +20,9 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 	const hasBreakingInBody = body?.includes('BREAKING CHANGE:') || body?.includes('BREAKING-CHANGE:')
 	const isBreaking = !!breaking || hasBreakingInBody
 
+	// Check for GRADUATE (0.x → 1.0.0) in body
+	const isGraduate = body?.includes('GRADUATE:') || body?.includes('STABLE:')
+
 	if (!type || !subject) return null
 
 	return {
@@ -29,6 +32,7 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 		subject: subject.trim(),
 		body: body || undefined,
 		breaking: isBreaking,
+		graduate: !!isGraduate,
 		raw: message,
 		files: files ?? [],
 	}
