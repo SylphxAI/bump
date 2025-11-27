@@ -1,0 +1,110 @@
+name: 'Bump Detect Mode'
+description: 'Detect release mode (pr or publish) based on author and npm version'
+author: 'SylphxAI'
+
+branding:
+  icon: 'search'
+  color: 'orange'
+
+inputs:
+  working-directory:
+    description: 'Working directory'
+    required: false
+    default: '.'
+  npm-token:
+    description: 'NPM token (optional, for private packages)'
+    required: false
+
+outputs:
+  mode:
+    description: 'Detected mode: "pr" or "publish"'
+    value: ${{ steps.detect.outputs.mode }}
+  is_publish:
+    description: 'Whether mode is publish (for easier conditionals)'
+    value: ${{ steps.detect.outputs.is_publish }}
+  is_pr:
+    description: 'Whether mode is pr (for easier conditionals)'
+    value: ${{ steps.detect.outputs.is_pr }}
+  author:
+    description: 'Git commit author'
+    value: ${{ steps.detect.outputs.author }}
+  reason:
+    description: 'Reason for the detected mode'
+    value: ${{ steps.detect.outputs.reason }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect release mode
+      id: detect
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        NPM_TOKEN: ${{ inputs.npm-token }}
+      run: |
+        set -euo pipefail
+
+        # Setup npm auth if provided (for private packages)
+        [ -n "${NPM_TOKEN:-}" ] && echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+        MODE="pr"
+        REASON="default"
+        AUTHOR=$(git log -1 --format='%an')
+
+        echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+
+        # Check 1: Must be bot commit
+        if [ "$AUTHOR" != "github-actions[bot]" ]; then
+          REASON="author is not github-actions[bot]"
+        else
+          # Check 2: Any package has unpublished version?
+          WORKSPACES=$(jq -r '.workspaces // empty | .[]?' package.json 2>/dev/null || true)
+
+          if [ -n "$WORKSPACES" ]; then
+            # Monorepo: check any package
+            for pattern in $WORKSPACES; do
+              for pkg_dir in $pattern; do
+                [ -f "$pkg_dir/package.json" ] || continue
+                PKG_NAME=$(jq -r '.name // empty' "$pkg_dir/package.json")
+                PKG_PRIVATE=$(jq -r '.private // false' "$pkg_dir/package.json")
+                LOCAL_VER=$(jq -r '.version // "0.0.0"' "$pkg_dir/package.json")
+                [ "$PKG_PRIVATE" = "true" ] && continue
+                [ -z "$PKG_NAME" ] && continue
+                NPM_VER=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+                if [ "$LOCAL_VER" != "$NPM_VER" ]; then
+                  MODE="publish"
+                  REASON="$PKG_NAME: local=$LOCAL_VER npm=$NPM_VER"
+                  break 2
+                fi
+              done
+            done
+            [ "$MODE" = "pr" ] && REASON="all packages already published"
+          else
+            # Single package
+            PKG_NAME=$(jq -r '.name // empty' package.json)
+            LOCAL_VER=$(jq -r '.version // "0.0.0"' package.json)
+            if [ -n "$PKG_NAME" ]; then
+              NPM_VER=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+              if [ "$LOCAL_VER" != "$NPM_VER" ]; then
+                MODE="publish"
+                REASON="$PKG_NAME: local=$LOCAL_VER npm=$NPM_VER"
+              else
+                REASON="$PKG_NAME already published ($LOCAL_VER)"
+              fi
+            else
+              REASON="no package name found"
+            fi
+          fi
+        fi
+
+        echo "mode=$MODE" >> $GITHUB_OUTPUT
+        echo "is_publish=$([[ "$MODE" == "publish" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+        echo "is_pr=$([[ "$MODE" == "pr" ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+        echo "reason=$REASON" >> $GITHUB_OUTPUT
+
+        echo "🔍 Detected mode: $MODE"
+        echo "   Author: $AUTHOR"
+        echo "   Reason: $REASON"
+
+        # Cleanup
+        rm -f ~/.npmrc
