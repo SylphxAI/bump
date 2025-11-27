@@ -1,5 +1,18 @@
 # @sylphx/bump
 
+## 0.10.1 (2025-11-27)
+
+### 🐛 Bug Fixes
+
+- **action:** use NPM_CONFIG_TOKEN for bun publish authentication ([690ac9c](https://github.com/SylphxAI/bump/commit/690ac9c3e2f8fc19e58dff0ae4797abe754e06d1))
+- use npm publish for monorepo (bun publish has auth issues) ([94eb52d](https://github.com/SylphxAI/bump/commit/94eb52d0f45eae6163f22fc8aac6d2f46e3085ea))
+- create .npmrc in package directory for monorepo publish ([2f68d95](https://github.com/SylphxAI/bump/commit/2f68d950cdf8b58c1c3fd4d449e3cc5c2a14753e))
+- sequential monorepo publish to surface errors ([1fde2e1](https://github.com/SylphxAI/bump/commit/1fde2e1176f5ee2d60431bd5e9cbcd80071586c0))
+
+### 🔧 Chores
+
+- add changeset for monorepo publish fix ([1b5432c](https://github.com/SylphxAI/bump/commit/1b5432c5bad26c488be990a9e98ff73329234c81))
+
 ## 0.10.0 (2025-11-27)
 
 ### ✨ Features
