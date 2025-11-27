@@ -24,6 +24,7 @@ export {
 } from './core/commits.ts'
 
 export {
+	adjustReleaseTypeForZeroVersion,
 	incrementVersion,
 	isValidVersion,
 	compareVersions,

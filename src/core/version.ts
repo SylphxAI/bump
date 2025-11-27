@@ -27,16 +27,37 @@ export interface MonorepoBumpContext {
 }
 
 /**
+ * Adjust release type for 0.x versions (semver initial development rules)
+ * - major becomes minor (breaking changes bump 0.x → 0.y)
+ * - minor becomes patch (features bump 0.x.y → 0.x.z)
+ */
+export function adjustReleaseTypeForZeroVersion(
+	currentVersion: string,
+	releaseType: ReleaseType
+): ReleaseType {
+	const major = semver.major(currentVersion)
+	if (major === 0) {
+		if (releaseType === 'major') return 'minor'
+		if (releaseType === 'minor') return 'patch'
+	}
+	return releaseType
+}
+
+/**
  * Increment version based on release type
+ * Automatically adjusts for 0.x semver rules
  */
 export function incrementVersion(
 	currentVersion: string,
 	releaseType: ReleaseType,
 	preid?: string
 ): string {
+	// Apply 0.x semver rules
+	const adjustedType = adjustReleaseTypeForZeroVersion(currentVersion, releaseType)
+
 	const result = preid
-		? semver.inc(currentVersion, releaseType, preid)
-		: semver.inc(currentVersion, releaseType)
+		? semver.inc(currentVersion, adjustedType, preid)
+		: semver.inc(currentVersion, adjustedType)
 	if (!result) {
 		throw new Error(
 			`Failed to increment version ${currentVersion} with release type ${releaseType}`
