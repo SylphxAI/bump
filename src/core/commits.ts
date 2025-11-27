@@ -20,8 +20,13 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 	const hasBreakingInBody = body?.includes('BREAKING CHANGE:') || body?.includes('BREAKING-CHANGE:')
 	const isBreaking = !!breaking || hasBreakingInBody
 
-	// Check for GRADUATE (0.x → 1.0.0) in body
-	const isGraduate = body?.includes('GRADUATE:') || body?.includes('STABLE:')
+	// Check for GRADUATE (0.x → 1.0.0) - in subject or body
+	const subjectLower = subject?.toLowerCase() ?? ''
+	const bodyLower = body?.toLowerCase() ?? ''
+	const isGraduate =
+		subjectLower.includes('graduate') ||
+		bodyLower.includes('graduate:') ||
+		bodyLower.includes('stable:')
 
 	if (!type || !subject) return null
 
