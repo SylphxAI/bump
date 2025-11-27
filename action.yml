@@ -256,6 +256,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         NPM_TOKEN: ${{ inputs.npm-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
         # Setup npmrc
         echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
