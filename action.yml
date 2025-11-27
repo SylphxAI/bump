@@ -179,7 +179,10 @@ runs:
             PIDS=""
             declare -a PACKAGES=()
 
-            # Collect info + parallel publish
+            # Setup global npmrc once
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+            # Collect info + sequential publish (parallel was swallowing errors)
             for pattern in $WORKSPACES; do
               for pkg_dir in $pattern; do
                 [ -f "$pkg_dir/package.json" ] || continue
@@ -191,14 +194,9 @@ runs:
                 PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
                 VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
 
-                # Parallel publish (background)
-                (
-                  cd "$pkg_dir"
-                  echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-                  bun publish --access public 2>&1 | sed "s/^/[$PKG_NAME] /"
-                  rm -f .npmrc
-                ) &
-                PIDS="$PIDS $!"
+                # Publish sequentially to see errors
+                echo "Publishing $PKG_NAME..."
+                (cd "$pkg_dir" && bun publish --access public) || echo "Warning: Failed to publish $PKG_NAME"
 
                 # Create tag if not exists
                 if [ "${{ inputs.tag }}" = "true" ]; then
@@ -208,9 +206,8 @@ runs:
               done
             done
 
-            # Wait for all publishes
-            echo "Waiting for parallel publishes..."
-            for pid in $PIDS; do wait $pid || true; done
+            rm -f ~/.npmrc
+            echo "Publishing complete"
 
             # Push tags once
             [ "${{ inputs.tag }}" = "true" ] && git push --tags 2>/dev/null || true
