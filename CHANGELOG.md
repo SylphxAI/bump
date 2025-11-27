@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 0.12.1 (2025-11-27)
+
+### 🐛 Bug Fixes
+
+- **pr:** use npm published version as currentVersion to fix version jumping ([37604a2](https://github.com/SylphxAI/bump/commit/37604a2b839e2df60a20e9b2869c55cbd4d6451e))
+
 ## 0.12.0 (2025-11-27)
 
 ### ✨ Features
