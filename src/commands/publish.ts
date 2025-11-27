@@ -16,6 +16,7 @@ import {
 	isMonorepo,
 	loadConfig,
 	updateChangelog,
+	updateDependencyVersions,
 	updatePackageVersion,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
@@ -197,6 +198,14 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		updateChangelog(pkgPath, entry, config)
 
 		consola.info(`  ${pc.cyan(bump.package)} → ${pc.green(bump.newVersion)}`)
+	}
+
+	// Step 1.5: Resolve workspace:* dependencies to actual versions
+	// bun publish should do this automatically, but there can be caching issues
+	if (packages.length > 0) {
+		const versionMap = new Map(bumps.map((b) => [b.package, b.newVersion]))
+		updateDependencyVersions(cwd, packages, versionMap)
+		consola.info('  Resolved workspace dependencies')
 	}
 
 	// Step 2: Install dependencies (after version update so workspace:^ resolves correctly)
