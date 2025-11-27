@@ -10,6 +10,7 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 - **Monorepo native** - File-based detection, independent versioning, cascade bumps
 - **Workspace protocol** - Auto-resolves `workspace:*` dependencies at publish time
 - **Pre-releases** - Alpha, beta, RC with single flag
+- **Graduate to 1.0** - Commit `feat: graduate` to go from 0.x → 1.0.0
 - **Cross-platform** - Works with npm, yarn, pnpm, and bun
 - **GitHub integration** - Auto-creates releases and changelogs
 
@@ -102,8 +103,20 @@ Use these prefixes in your commits:
 | `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add dark mode` |
 | `fix:` | Patch (1.0.0 → 1.0.1) | `fix: resolve login bug` |
 | `feat!:` | Major (1.0.0 → 2.0.0) | `feat!: redesign API` |
+| `feat: graduate` | Graduate (0.x → 1.0.0) | `feat: graduate to stable` |
 
 Other prefixes like `docs:`, `chore:`, `test:`, `ci:` don't trigger releases.
+
+### Semver 0.x Behavior
+
+During 0.x development, breaking changes bump minor instead of major (per semver spec):
+- `feat!:` on 0.1.0 → 0.2.0 (not 1.0.0)
+
+When ready for stable release, commit with "graduate" in the message:
+```bash
+git commit -m "feat: graduate to stable release"
+```
+This will bump 0.x.x → 1.0.0.
 
 ## What Happens
 
@@ -201,6 +214,9 @@ npx bump --rc                 # 1.0.0 → 1.1.0-rc.0
 # Pre-release (explicit)
 npx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
 npx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
+
+# Graduate from 0.x to 1.0.0
+npx bump --graduate           # 0.5.0 → 1.0.0
 
 # Debug mode
 npx bump --verbose            # Show detailed debug output
