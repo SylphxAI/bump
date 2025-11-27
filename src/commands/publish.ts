@@ -47,11 +47,53 @@ export interface PublishResult {
 }
 
 /**
+ * Check if the current commit is already a release commit
+ * This happens when a release PR was just merged
+ */
+async function isReleaseCommit(): Promise<boolean> {
+	const result = await $`git log -1 --format=%s`.nothrow()
+	if (result.exitCode !== 0) return false
+	const message = result.stdout.trim()
+	return message.startsWith('chore(release):')
+}
+
+/**
+ * Parse package versions from existing release commit message
+ * Returns map of package name -> version
+ */
+function parseReleaseCommitVersions(message: string): Map<string, string> {
+	const versions = new Map<string, string>()
+
+	// Single package: "chore(release): @scope/pkg@1.0.0"
+	// Multi package: "chore(release): 2 packages\n\n- @scope/pkg1@1.0.0\n- @scope/pkg2@1.0.0"
+	const singleMatch = message.match(/^chore\(release\): (@?[\w\/-]+)@(\d+\.\d+\.\d+)/)
+	if (singleMatch) {
+		versions.set(singleMatch[1], singleMatch[2])
+		return versions
+	}
+
+	// Multi-package format
+	const multiMatches = message.matchAll(/- (@?[\w\/-]+)@(\d+\.\d+\.\d+)/g)
+	for (const match of multiMatches) {
+		versions.set(match[1], match[2])
+	}
+
+	return versions
+}
+
+/**
  * Publish packages - recalculates bumps fresh from npm baseline
  * This runs after PR merge - calculates version changes, publishes, then commits
  */
 export async function runPublish(options: PublishOptions = {}): Promise<PublishResult> {
 	const cwd = options.cwd ?? process.cwd()
+
+	// Check if we're on a release commit (PR was just merged)
+	// In this case, skip version bumping - just publish what's there
+	const onReleaseCommit = await isReleaseCommit()
+	if (onReleaseCommit) {
+		return runPublishFromReleaseCommit(cwd, options)
+	}
 
 	consola.start('Calculating version bumps from npm baseline...')
 
@@ -353,6 +395,184 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 		if (existsSync(changelogFile)) {
 			// Extract notes for this version from changelog
+			const changelog = readFileSync(changelogFile, 'utf-8')
+			const versionMatch = changelog.match(
+				new RegExp(`## ${pkg.version.replace(/\./g, '\\.')}[^#]*`, 's')
+			)
+			const notes = versionMatch ? versionMatch[0].trim() : ''
+
+			if (notes) {
+				await $`echo ${notes} | gh release create ${tag} --title ${tag} --notes-file -`
+					.quiet()
+					.nothrow()
+			} else {
+				await $`gh release create ${tag} --title ${tag} --generate-notes`.quiet().nothrow()
+			}
+		} else {
+			await $`gh release create ${tag} --title ${tag} --generate-notes`.quiet().nothrow()
+		}
+	}
+
+	consola.success('Publish completed!')
+	return {
+		published: true,
+		packages: publishedPackages.map((p) => ({ name: p.name, version: p.version })),
+	}
+}
+
+/**
+ * Publish from an existing release commit (PR was already merged)
+ * Skips version bumping and commit - just publishes, tags, and releases
+ */
+async function runPublishFromReleaseCommit(
+	cwd: string,
+	options: PublishOptions
+): Promise<PublishResult> {
+	consola.start('Publishing from release commit...')
+
+	// Get the commit message to parse versions
+	const commitResult = await $`git log -1 --format=%B`
+	const commitMsg = commitResult.stdout.trim()
+	const releaseVersions = parseReleaseCommitVersions(commitMsg)
+
+	if (releaseVersions.size === 0) {
+		consola.warn('Could not parse versions from release commit')
+		return { published: false, packages: [] }
+	}
+
+	// Load config and packages
+	const config = await loadConfig(cwd)
+	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
+
+	// Build list of packages to publish from the commit message
+	const packagesToPublish: Array<{ name: string; version: string; path: string }> = []
+
+	if (packages.length > 0) {
+		// Monorepo: match packages from commit message
+		for (const [name, version] of releaseVersions) {
+			const pkg = packages.find((p) => p.name === name)
+			if (pkg) {
+				packagesToPublish.push({ name, version, path: pkg.path })
+			}
+		}
+	} else {
+		// Single package
+		const pkg = await getSinglePackage(cwd)
+		if (pkg && releaseVersions.has(pkg.name)) {
+			packagesToPublish.push({
+				name: pkg.name,
+				version: releaseVersions.get(pkg.name)!,
+				path: cwd,
+			})
+		}
+	}
+
+	if (packagesToPublish.length === 0) {
+		consola.warn('No packages found to publish')
+		return { published: false, packages: [] }
+	}
+
+	consola.info(`Found ${packagesToPublish.length} package(s) to publish:`)
+	for (const pkg of packagesToPublish) {
+		consola.info(`  ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}`)
+	}
+
+	if (options.dryRun) {
+		consola.info('Dry run - no changes will be made')
+		return {
+			published: false,
+			packages: packagesToPublish.map((p) => ({ name: p.name, version: p.version })),
+		}
+	}
+
+	// Resolve workspace deps for publish (temporary)
+	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
+	if (packages.length > 0) {
+		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, packages)
+		resolveAllWorkspaceDeps(cwd, packages)
+		consola.info('  Resolved workspace dependencies')
+	}
+
+	// Install dependencies
+	consola.start('Installing dependencies...')
+	const pm = detectPM(cwd)
+	const ciCmd = getInstallCommandCI(pm)
+	let installResult = await $`${ciCmd}`.nothrow()
+	if (installResult.exitCode !== 0) {
+		const cmd = getInstallCommand(pm)
+		installResult = await $`${cmd}`.nothrow()
+		if (installResult.exitCode !== 0) {
+			consola.warn('Install had issues, continuing...')
+		}
+	}
+
+	// Publish
+	consola.start('Publishing to npm...')
+	const publishedPackages: Array<{ name: string; version: string; path: string }> = []
+	let allSuccess = true
+
+	// Create .npmrc at git root
+	const npmrcPath = join(cwd, '.npmrc')
+	const existingNpmrc = existsSync(npmrcPath) ? readFileSync(npmrcPath, 'utf-8') : null
+	if (process.env.NPM_TOKEN) {
+		writeFileSync(npmrcPath, `//registry.npmjs.org/:_authToken=${process.env.NPM_TOKEN}\n`)
+	}
+
+	for (const pkg of packagesToPublish) {
+		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
+		const publishResult = await $({ cwd: pkg.path })`npm publish --access public`.nothrow()
+
+		if (publishResult.exitCode !== 0) {
+			consola.error(`  Failed to publish ${pkg.name}: ${publishResult.stderr}`)
+			allSuccess = false
+			break
+		}
+
+		publishedPackages.push(pkg)
+	}
+
+	// Restore .npmrc
+	if (process.env.NPM_TOKEN) {
+		if (existingNpmrc !== null) {
+			writeFileSync(npmrcPath, existingNpmrc)
+		} else {
+			try {
+				unlinkSync(npmrcPath)
+			} catch {
+				// Ignore
+			}
+		}
+	}
+
+	if (!allSuccess) {
+		consola.error('Publish failed')
+		process.exit(1)
+	}
+
+	// Restore workspace deps (no commit needed - PR already has everything)
+	if (workspaceDepsSnapshot) {
+		restoreWorkspaceDeps(workspaceDepsSnapshot)
+		consola.info('  Restored workspace dependencies')
+	}
+
+	// Create tags
+	consola.start('Creating tags...')
+	for (const pkg of publishedPackages) {
+		const tag = packages.length > 0 ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`
+		const existingTag = await $`git tag -l ${tag}`
+		if (!existingTag.stdout.trim()) {
+			await $`git tag -a ${tag} -m "Release ${tag}"`
+		}
+	}
+	await $`git push --tags`
+
+	// Create GitHub releases
+	consola.start('Creating GitHub releases...')
+	for (const pkg of publishedPackages) {
+		const tag = packages.length > 0 ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`
+		const changelogFile = join(pkg.path, 'CHANGELOG.md')
+
+		if (existsSync(changelogFile)) {
 			const changelog = readFileSync(changelogFile, 'utf-8')
 			const versionMatch = changelog.match(
 				new RegExp(`## ${pkg.version.replace(/\./g, '\\.')}[^#]*`, 's')

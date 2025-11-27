@@ -16,6 +16,8 @@ import {
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
+	updateChangelog,
+	updatePackageVersion,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import {
@@ -379,23 +381,44 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	// Check for existing PR
 	const existingPr = await findReleasePr()
 
+	// Helper to apply version changes
+	const applyVersionChanges = () => {
+		for (const bump of bumps) {
+			const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
+			updatePackageVersion(pkgPath, bump.newVersion)
+
+			// Update CHANGELOG.md
+			const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+			updateChangelog(pkgPath, entry, config)
+		}
+	}
+
 	try {
 		if (existingPr) {
 			// Update existing PR
 			consola.start('Updating existing release PR...')
+
+			// Convert to draft to prevent merge during update
+			await $`gh pr ready --undo ${existingPr.number}`.quiet().nothrow()
 
 			// Switch to PR branch and update
 			await $`git fetch origin ${PR_BRANCH}:${PR_BRANCH} 2>/dev/null || true`.quiet()
 			await $`git checkout -B ${PR_BRANCH}`
 			await $`git reset --hard origin/${baseBranch}`
 
-			// PR is preview-only - no file changes needed
-			// Actual version bump happens during publish after merge
-			await $`git commit --allow-empty -m ${prTitle}`
+			// Apply actual version changes
+			applyVersionChanges()
+
+			// Commit changes
+			await $`git add -A`
+			await $`git commit -m ${prTitle}`
 			await $`git push -f origin ${PR_BRANCH}`
 
-			// Update PR
+			// Update PR title/body
 			await $`gh pr edit ${existingPr.number} --title ${prTitle} --body ${prBody}`
+
+			// Mark PR ready (allow merge again)
+			await $`gh pr ready ${existingPr.number}`.quiet().nothrow()
 
 			// Switch back
 			await $`git checkout ${baseBranch}`
@@ -411,9 +434,12 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Create branch (force to overwrite if exists locally)
 			await $`git checkout -B ${PR_BRANCH}`
 
-			// PR is preview-only - no file changes needed
-			// Actual version bump happens during publish after merge
-			await $`git commit --allow-empty -m ${prTitle}`
+			// Apply actual version changes
+			applyVersionChanges()
+
+			// Commit changes
+			await $`git add -A`
+			await $`git commit -m ${prTitle}`
 			await $`git push -f -u origin ${PR_BRANCH}`
 
 			// Create PR (or get existing if branch already has PR)
@@ -445,8 +471,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			consola.info(prUrl)
 		}
 	} catch (error) {
-		// Make sure we switch back to original branch
+		// Make sure we switch back to original branch and mark PR ready if it was converted to draft
 		await $`git checkout ${baseBranch}`.quiet().nothrow()
+		if (existingPr) {
+			await $`gh pr ready ${existingPr.number}`.quiet().nothrow()
+		}
 		throw error
 	}
 }
