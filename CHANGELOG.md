@@ -1,5 +1,22 @@
 # @sylphx/bump
 
+## 0.9.0 (2025-11-27)
+
+### ✨ Features
+
+- add detect action for mode detection ([afb671d](https://github.com/SylphxAI/bump/commit/afb671d881401e5441b498c2aafc9aee6c9fecff))
+- **action:** improve auto mode detection ([e7873dd](https://github.com/SylphxAI/bump/commit/e7873ddc6b7665d75c19a469279843b3207f2daa))
+- **action:** add GitHub releases for monorepo packages ([5a01d62](https://github.com/SylphxAI/bump/commit/5a01d629e8a97e5cc1174dee11c0241d9c05e6e6))
+
+### 🐛 Bug Fixes
+
+- **action:** add GH_TOKEN to publish step for releases ([dd71954](https://github.com/SylphxAI/bump/commit/dd7195483f1071a299e2083125a7587c8627780d))
+
+### ⚡️ Performance
+
+- **action:** parallel publish + cache + merged steps ([743ead8](https://github.com/SylphxAI/bump/commit/743ead8ecf96366eeda7e61deb3ad88c320178b7))
+- **action:** optimize for speed ([7cf426d](https://github.com/SylphxAI/bump/commit/7cf426dbb325936e7fa13c75dd84857befba8520))
+
 ## 0.8.0 (2025-11-27)
 
 ### ✨ Features
