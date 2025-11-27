@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 0.11.0 (2025-11-27)
+
+### ✨ Features
+
+- **version:** use npm published version as baseline for version calculation ([1e02e42](https://github.com/SylphxAI/bump/commit/1e02e42dfbfbe7aae2c8d91750d398db6817b953))
+
 ## 0.10.2 (2025-11-27)
 
 ### 🐛 Bug Fixes
