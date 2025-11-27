@@ -191,13 +191,11 @@ runs:
                 PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
                 VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
 
-                # Publish - create npmrc, publish, cleanup
+                # Publish using npm (bun publish has issues in monorepo)
                 echo "Publishing $PKG_NAME..."
                 pushd "$pkg_dir" > /dev/null
                 echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-                cat .npmrc | head -c 50  # debug: verify file exists
-                echo "..."
-                bun publish --access public || echo "Warning: Failed to publish $PKG_NAME"
+                npm publish --access public || echo "Warning: Failed to publish $PKG_NAME"
                 rm -f .npmrc
                 popd > /dev/null
 
