@@ -43,11 +43,8 @@ outputs:
   published:
     description: 'Whether packages were published'
     value: ${{ steps.bump.outputs.published }}
-  version:
-    description: 'The new version (single package)'
-    value: ${{ steps.bump.outputs.version }}
   versions:
-    description: 'JSON object of package versions (monorepo)'
+    description: 'JSON object of package versions {"pkg-name": "1.0.0"}'
     value: ${{ steps.bump.outputs.versions }}
 
 runs:
@@ -138,14 +135,8 @@ runs:
 
             echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
 
-            # Set version outputs
-            PKG_COUNT=$(echo "$PACKAGES" | jq 'length')
-            if [ "$PKG_COUNT" = "1" ]; then
-              # Single package - set version
-              VERSION=$(echo "$PACKAGES" | jq -r '.[0].version')
-              echo "version=$VERSION" >> $GITHUB_OUTPUT
-            elif [ "$PKG_COUNT" -gt "1" ]; then
-              # Multiple packages - set versions as JSON object
+            # Set versions as JSON object {"pkg-name": "1.0.0", ...}
+            if [ "$(echo "$PACKAGES" | jq 'length')" -gt "0" ]; then
               VERSIONS=$(echo "$PACKAGES" | jq -c 'map({(.name): .version}) | add')
               echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
             fi
