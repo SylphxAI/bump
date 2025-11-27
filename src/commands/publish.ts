@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { $ } from 'bun'
+import { $ } from 'zx'
 import consola from 'consola'
+
+// Configure zx
+$.quiet = true
 import pc from 'picocolors'
 import {
 	type MonorepoBumpContext,
@@ -29,6 +32,7 @@ import {
 	getLatestTagForPackage,
 } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
+import { detectPM, getInstallCommandCI, getInstallCommand } from '../utils/pm.ts'
 
 export interface PublishOptions {
 	cwd?: string
@@ -211,11 +215,16 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 	// Step 2: Install dependencies (after version update so workspace:^ resolves correctly)
 	consola.start('Installing dependencies...')
-	const installResult = await $`bun install --frozen-lockfile 2>/dev/null || bun install`
-		.quiet()
-		.nothrow()
+	const pm = detectPM(cwd)
+	const ciCmd = getInstallCommandCI(pm)
+	let installResult = await $`${ciCmd}`.nothrow()
 	if (installResult.exitCode !== 0) {
-		consola.warn('Install had issues, continuing...')
+		// Fall back to regular install
+		const cmd = getInstallCommand(pm)
+		installResult = await $`${cmd}`.nothrow()
+		if (installResult.exitCode !== 0) {
+			consola.warn('Install had issues, continuing...')
+		}
 	}
 
 	// Step 3: Publish each package
@@ -228,12 +237,12 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
-		const publishResult = await $`NPM_CONFIG_TOKEN=${process.env.NPM_TOKEN} bun publish --access public --cwd ${pkgPath}`
-			.quiet()
-			.nothrow()
+		// Use npm publish (universal across all package managers)
+		const env = process.env.NPM_TOKEN ? { ...process.env, NPM_CONFIG_TOKEN: process.env.NPM_TOKEN } : process.env
+		const publishResult = await $({ cwd: pkgPath, env })`npm publish --access public`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
-			consola.error(`  Failed to publish ${bump.package}: ${publishResult.stderr.toString()}`)
+			consola.error(`  Failed to publish ${bump.package}: ${publishResult.stderr}`)
 			allSuccess = false
 			// Don't continue - we want atomic publish
 			break
@@ -264,8 +273,8 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	consola.start('Creating tags...')
 	for (const pkg of publishedPackages) {
 		const tag = packages.length > 0 ? `${pkg.name}@${pkg.version}` : `v${pkg.version}`
-		const existingTag = await $`git tag -l ${tag}`.quiet().text()
-		if (!existingTag.trim()) {
+		const existingTag = await $`git tag -l ${tag}`
+		if (!existingTag.stdout.trim()) {
 			await $`git tag -a ${tag} -m "Release ${tag}"`
 		}
 	}

@@ -1,5 +1,8 @@
-import { $ } from 'bun'
+import { $, ProcessOutput } from 'zx'
 import consola from 'consola'
+
+// Configure zx
+$.quiet = true
 import pc from 'picocolors'
 import {
 	type MonorepoBumpContext,
@@ -123,9 +126,10 @@ function generatePrBody(
  */
 async function findReleasePr(): Promise<{ number: number; headRefName: string } | null> {
 	try {
-		const result = await $`gh pr list --head ${PR_BRANCH} --json number,headRefName`.json()
-		if (Array.isArray(result) && result.length > 0) {
-			return result[0] as { number: number; headRefName: string }
+		const result = await $`gh pr list --head ${PR_BRANCH} --json number,headRefName`
+		const parsed = JSON.parse(result.stdout)
+		if (Array.isArray(parsed) && parsed.length > 0) {
+			return parsed[0] as { number: number; headRefName: string }
 		}
 		return null
 	} catch {
@@ -203,7 +207,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			if (existingPr) {
 				consola.info('Closing existing release PR (no changes)')
 				if (!options.dryRun) {
-					await $`gh pr close ${existingPr.number} --delete-branch`.quiet()
+					try {
+						await $`gh pr close ${existingPr.number} --delete-branch`
+					} catch {
+						// Ignore errors
+					}
 				}
 			}
 			return
@@ -272,7 +280,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			if (existingPr) {
 				consola.info('Closing existing release PR (no changes)')
 				if (!options.dryRun) {
-					await $`gh pr close ${existingPr.number} --delete-branch`.quiet()
+					try {
+						await $`gh pr close ${existingPr.number} --delete-branch`
+					} catch {
+						// Ignore errors
+					}
 				}
 			}
 			return
@@ -381,12 +393,12 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 					.quiet()
 					.nothrow()
 			if (createResult.exitCode === 0) {
-				prUrl = createResult.text().trim()
+				prUrl = createResult.stdout.trim()
 			} else {
 				// PR might already exist, try to view it
 				const viewResult = await $`gh pr view ${PR_BRANCH} --json url -q .url`.quiet().nothrow()
 				if (viewResult.exitCode === 0) {
-					prUrl = viewResult.text().trim()
+					prUrl = viewResult.stdout.trim()
 				} else {
 					// Neither worked - throw with context
 					throw new Error(

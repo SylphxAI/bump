@@ -1,4 +1,7 @@
-import { $ } from 'bun'
+import { $ } from 'zx'
+
+// Configure zx
+$.quiet = true
 
 /**
  * Get the latest published version of a package from npm registry
@@ -6,8 +9,8 @@ import { $ } from 'bun'
  */
 export async function getNpmPublishedVersion(packageName: string): Promise<string | null> {
 	try {
-		const result = await $`npm view ${packageName} version`.quiet().text()
-		const version = result.trim()
+		const result = await $`npm view ${packageName} version`
+		const version = result.stdout.trim()
 		// Validate it looks like a version
 		if (/^\d+\.\d+\.\d+/.test(version)) {
 			return version
@@ -25,8 +28,8 @@ export async function getNpmPublishedVersion(packageName: string): Promise<strin
  */
 export async function getNpmPublishedVersions(packageName: string): Promise<string[]> {
 	try {
-		const result = await $`npm view ${packageName} versions --json`.quiet().text()
-		const versions = JSON.parse(result)
+		const result = await $`npm view ${packageName} versions --json`
+		const versions = JSON.parse(result.stdout)
 		if (Array.isArray(versions)) {
 			return versions
 		}

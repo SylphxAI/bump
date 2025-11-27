@@ -1,7 +1,7 @@
 {
 	"name": "@sylphx/bump",
 	"version": "0.14.1",
-	"description": "Modern changelog and release management for Bun",
+	"description": "Modern changelog and release management",
 	"type": "module",
 	"exports": {
 		".": {
@@ -16,7 +16,7 @@
 		"dist"
 	],
 	"scripts": {
-		"build": "bunup && bun build src/cli.ts --outfile dist/cli.js --target bun",
+		"build": "bunup && bun build src/cli.ts --outfile dist/cli.js --target node",
 		"dev": "bunup --watch",
 		"lint": "biome check .",
 		"format": "biome format --write .",
@@ -29,7 +29,8 @@
 		"consola": "^3.4.2",
 		"defu": "^6.1.4",
 		"picocolors": "^1.1.1",
-		"semver": "^7.6.3"
+		"semver": "^7.6.3",
+		"zx": "^8.8.5"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",

@@ -1,7 +1,10 @@
-import { $ } from 'bun'
+import { $ } from 'zx'
 import { generateChangelogEntry } from '../core/changelog.ts'
 import type { BumpConfig, VersionBump } from '../types.ts'
 import { getRemoteUrl, parseGitHubRepo } from '../utils/git.ts'
+
+// Configure zx
+$.quiet = true
 
 export interface GitHubRelease {
 	tag: string
@@ -37,8 +40,8 @@ export async function createGitHubRelease(release: GitHubRelease): Promise<strin
 		args.push('--prerelease')
 	}
 
-	const result = await $`gh ${args}`.text()
-	return result.trim()
+	const result = await $`gh ${args}`
+	return result.stdout.trim()
 }
 
 /**
@@ -47,7 +50,7 @@ export async function createGitHubRelease(release: GitHubRelease): Promise<strin
 export async function isGhCliAvailable(): Promise<boolean> {
 	if (ghCliAvailable !== null) return ghCliAvailable
 	try {
-		await $`gh --version`.quiet()
+		await $`gh --version`
 		ghCliAvailable = true
 	} catch {
 		ghCliAvailable = false
@@ -61,7 +64,7 @@ export async function isGhCliAvailable(): Promise<boolean> {
 export async function isGhAuthenticated(): Promise<boolean> {
 	if (ghAuthenticated !== null) return ghAuthenticated
 	try {
-		await $`gh auth status`.quiet()
+		await $`gh auth status`
 		ghAuthenticated = true
 	} catch {
 		ghAuthenticated = false
