@@ -303,6 +303,42 @@ runs:
             if [ "${{ inputs.tag }}" = "true" ]; then
               git push --tags || true
             fi
+
+            # Create GitHub releases for each package
+            if [ "${{ inputs.github-release }}" = "true" ]; then
+              echo "Creating GitHub releases for monorepo packages..."
+              for pattern in $WORKSPACES; do
+                for pkg_dir in $pattern; do
+                  if [ -f "$pkg_dir/package.json" ]; then
+                    PKG_NAME=$(jq -r '.name' "$pkg_dir/package.json")
+                    PKG_VERSION=$(jq -r '.version' "$pkg_dir/package.json")
+                    PKG_PRIVATE=$(jq -r '.private // false' "$pkg_dir/package.json")
+
+                    if [ "$PKG_PRIVATE" = "false" ]; then
+                      TAG="${PKG_NAME}@${PKG_VERSION}"
+                      echo "Creating GitHub release for $TAG..."
+
+                      # Extract changelog section for this version
+                      CHANGELOG_FILE="$pkg_dir/CHANGELOG.md"
+                      if [ -f "$CHANGELOG_FILE" ]; then
+                        RELEASE_NOTES=$(awk -v ver="$PKG_VERSION" '
+                          /^## / { if (found) exit; if ($0 ~ ver) found=1; next }
+                          found { print }
+                        ' "$CHANGELOG_FILE")
+
+                        if [ -n "$RELEASE_NOTES" ]; then
+                          echo "$RELEASE_NOTES" | gh release create "$TAG" --title "$TAG" --notes-file - || true
+                        else
+                          gh release create "$TAG" --title "$TAG" --generate-notes || true
+                        fi
+                      else
+                        gh release create "$TAG" --title "$TAG" --generate-notes || true
+                      fi
+                    fi
+                  fi
+                done
+              done
+            fi
           else
             # Single package mode
             echo "Publishing single package..."
