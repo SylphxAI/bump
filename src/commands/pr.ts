@@ -147,6 +147,13 @@ async function findReleasePr(): Promise<{ number: number; headRefName: string } 
  * Create or update release PR
  */
 export async function runPr(options: PrOptions = {}): Promise<void> {
+	// Block local execution - bump pr only works with CI workflow
+	if (!process.env.CI && !process.env.GITHUB_ACTIONS) {
+		consola.error('bump pr should only be run in CI environment')
+		consola.info('Push to main and let GitHub Actions create the release PR')
+		process.exit(1)
+	}
+
 	const cwd = options.cwd ?? process.cwd()
 
 	// Parallel initialization
