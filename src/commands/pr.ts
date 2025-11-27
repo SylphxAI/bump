@@ -1,5 +1,3 @@
-import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { $ } from 'bun'
 import consola from 'consola'
 import pc from 'picocolors'
@@ -15,12 +13,11 @@ import {
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
-	updateChangelog,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import {
-	getAllTags,
 	findTagForVersion,
+	getAllTags,
 	getCurrentBranch,
 	getGitHubRepoUrl,
 	getGitRoot,
@@ -28,17 +25,6 @@ import {
 	getLatestTagForPackage,
 } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
-
-/**
- * Update package.json version directly (no npm dependency)
- */
-function updatePackageVersion(pkgPath: string, newVersion: string): void {
-	const pkgJsonPath = join(pkgPath, 'package.json')
-	const content = readFileSync(pkgJsonPath, 'utf-8')
-	const pkg = JSON.parse(content) as Record<string, unknown>
-	pkg.version = newVersion
-	writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, 2)}\n`, 'utf-8')
-}
 
 export interface PrOptions {
 	cwd?: string
@@ -372,9 +358,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git checkout ${baseBranch}`
 
 			consola.success(`Updated PR #${existingPr.number}`)
-			consola.info(
-				`https://github.com/$(gh repo view --json nameWithOwner -q .nameWithOwner)/pull/${existingPr.number}`
-			)
+			if (repoUrl) {
+				consola.info(`${repoUrl}/pull/${existingPr.number}`)
+			}
 		} else {
 			// Create new PR
 			consola.start('Creating release PR...')

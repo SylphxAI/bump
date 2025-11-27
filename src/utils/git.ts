@@ -1,4 +1,5 @@
 import { $ } from 'bun'
+import * as semver from 'semver'
 
 export interface GitCommit {
 	hash: string
@@ -157,18 +158,11 @@ export async function getLatestTagForPackage(
 	const tags = getTagsForPackage(packageName, allTags ?? (await getAllTags()))
 	if (tags.length === 0) return null
 
-	// Sort by version (extract version from tag)
+	// Sort by version using semver (handles prereleases correctly)
 	const sortedTags = tags.sort((a, b) => {
 		const versionA = a.replace(`${packageName}@`, '')
 		const versionB = b.replace(`${packageName}@`, '')
-		// Simple semver comparison
-		const partsA = versionA.split('.').map(Number)
-		const partsB = versionB.split('.').map(Number)
-		for (let i = 0; i < 3; i++) {
-			const diff = (partsA[i] ?? 0) - (partsB[i] ?? 0)
-			if (diff !== 0) return diff
-		}
-		return 0
+		return semver.compare(versionA, versionB)
 	})
 
 	return sortedTags[sortedTags.length - 1] ?? null

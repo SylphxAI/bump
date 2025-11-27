@@ -16,6 +16,7 @@ import {
 	isMonorepo,
 	loadConfig,
 	updateChangelog,
+	updatePackageVersion,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import {
@@ -27,18 +28,6 @@ import {
 	getLatestTagForPackage,
 } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
-
-/**
- * Update package.json version directly
- */
-function updatePackageVersion(pkgPath: string, newVersion: string): void {
-	const pkgJsonPath = join(pkgPath, 'package.json')
-	const content = readFileSync(pkgJsonPath, 'utf-8')
-	const pkg = JSON.parse(content) as Record<string, unknown>
-	pkg.version = newVersion
-	const { writeFileSync } = require('node:fs')
-	writeFileSync(pkgJsonPath, `${JSON.stringify(pkg, null, '\t')}\n`, 'utf-8')
-}
 
 export interface PublishOptions {
 	cwd?: string

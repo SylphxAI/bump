@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { defineCommand, runMain } from 'citty'
 import consola from 'consola'
+import pkg from '../package.json'
 import { runBump } from './commands/bump.ts'
 import { runInit } from './commands/init.ts'
 import { runPr } from './commands/pr.ts'
@@ -11,8 +12,8 @@ import { BumpError, formatError } from './utils/errors.ts'
 const bump = defineCommand({
 	meta: {
 		name: 'bump',
-		version: '0.0.1',
-		description: 'Modern changelog and release management for Bun',
+		version: pkg.version,
+		description: pkg.description,
 	},
 	args: {
 		'dry-run': {
