@@ -1,5 +1,12 @@
 # @sylphx/bump
 
+## 0.12.0 (2025-11-27)
+
+### ✨ Features
+
+- **changelog:** show specific updated dependencies in changelog ([d71e532](https://github.com/SylphxAI/bump/commit/d71e5324c5aded9148d33ff42026ec7d324a84d7))
+- **changelog:** show 'Dependency updates' instead of 'No notable changes' ([2a27376](https://github.com/SylphxAI/bump/commit/2a273766661961b96920478c12585367c80a43a7))
+
 ## 0.11.0 (2025-11-27)
 
 ### ✨ Features
