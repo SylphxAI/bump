@@ -191,11 +191,15 @@ runs:
                 PACKAGES+=("$pkg_dir|$PKG_NAME|$PKG_VERSION")
                 VERSIONS_JSON=$(echo "$VERSIONS_JSON" | jq -c --arg n "$PKG_NAME" --arg v "$PKG_VERSION" '. + {($n): $v}')
 
-                # Publish with local npmrc in package directory
+                # Publish - create npmrc, publish, cleanup
                 echo "Publishing $PKG_NAME..."
-                echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$pkg_dir/.npmrc"
-                (cd "$pkg_dir" && bun publish --access public) || echo "Warning: Failed to publish $PKG_NAME"
-                rm -f "$pkg_dir/.npmrc"
+                pushd "$pkg_dir" > /dev/null
+                echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+                cat .npmrc | head -c 50  # debug: verify file exists
+                echo "..."
+                bun publish --access public || echo "Warning: Failed to publish $PKG_NAME"
+                rm -f .npmrc
+                popd > /dev/null
 
                 # Create tag if not exists
                 if [ "${{ inputs.tag }}" = "true" ]; then
