@@ -35,6 +35,32 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 }
 
 /**
+ * Check if a commit is a release commit that should be excluded from bump calculation
+ * Release commits are created by bump and should not trigger new releases
+ */
+function isReleaseCommit(commit: ConventionalCommit): boolean {
+	// Skip chore(release) commits - these are bump-generated release commits
+	if (commit.type === 'chore' && commit.scope === 'release') {
+		return true
+	}
+
+	// Skip commits with release-like subjects (fallback)
+	const releasePatterns = [
+		/^v?\d+\.\d+\.\d+/, // starts with version
+		/^@[\w/-]+@\d+\.\d+\.\d+/, // scoped package@version
+		/release/i, // contains "release"
+	]
+
+	for (const pattern of releasePatterns) {
+		if (pattern.test(commit.subject)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+/**
  * Get all conventional commits since a ref
  */
 export async function getConventionalCommits(ref?: string): Promise<ConventionalCommit[]> {
@@ -43,7 +69,7 @@ export async function getConventionalCommits(ref?: string): Promise<Conventional
 
 	for (const commit of commits) {
 		const conventional = parseConventionalCommit(commit)
-		if (conventional) {
+		if (conventional && !isReleaseCommit(conventional)) {
 			parsed.push(conventional)
 		}
 	}
