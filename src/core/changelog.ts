@@ -55,8 +55,12 @@ export function generateChangelogEntry(
 
 	if (commits.length === 0) {
 		// Check if this is a dependency update bump
-		if (bump.reason === 'dependency-update') {
-			lines.push('Dependency updates.')
+		if (bump.updatedDeps && bump.updatedDeps.length > 0) {
+			lines.push('### 📦 Dependencies')
+			lines.push('')
+			for (const dep of bump.updatedDeps) {
+				lines.push(`- Updated \`${dep.name}\` to ${dep.version}`)
+			}
 		} else {
 			lines.push('No notable changes.')
 		}

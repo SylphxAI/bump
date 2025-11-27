@@ -106,8 +106,8 @@ export interface VersionBump {
 	newVersion: string
 	releaseType: ReleaseType
 	commits: ConventionalCommit[]
-	/** Reason for bump when not from direct commits */
-	reason?: 'dependency-update'
+	/** Updated dependencies that triggered this bump (for cascade bumps) */
+	updatedDeps?: Array<{ name: string; version: string }>
 }
 
 export interface ReleaseContext {

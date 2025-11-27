@@ -227,10 +227,21 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 		// Cascade bump: find packages that depend on bumped packages
 		if (bumps.length > 0) {
-			const bumpedNames = new Set(bumps.map((b) => b.package))
+			// Map of package name -> new version for quick lookup
+			const bumpedVersions = new Map(bumps.map((b) => [b.package, b.newVersion]))
+			const bumpedNames = new Set(bumpedVersions.keys())
 			const cascadePackages = calculateCascadeBumps(packages, bumpedNames)
 
 			for (const pkg of cascadePackages) {
+				// Find which bumped packages this package depends on
+				const allDeps = { ...pkg.dependencies, ...pkg.devDependencies }
+				const updatedDeps: Array<{ name: string; version: string }> = []
+				for (const [depName, newVersion] of bumpedVersions) {
+					if (depName in allDeps) {
+						updatedDeps.push({ name: depName, version: newVersion })
+					}
+				}
+
 				const newVersion = incrementVersion(pkg.version, 'patch')
 				bumps.push({
 					package: pkg.name,
@@ -238,7 +249,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 					newVersion,
 					releaseType: 'patch',
 					commits: [],
-					reason: 'dependency-update',
+					updatedDeps,
 				})
 			}
 		}
