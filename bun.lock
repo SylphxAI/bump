@@ -14,6 +14,7 @@
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",
         "@sylphx/biome-config": "^0.1.0",
+        "@sylphx/doctor": "^1.19.1",
         "@sylphx/tsconfig": "^0.1.0",
         "@types/bun": "^1.2.10",
         "@types/semver": "^7.5.8",
@@ -135,6 +136,8 @@
 
     "@sylphx/biome-config": ["@sylphx/biome-config@0.1.0", "", { "peerDependencies": { "@biomejs/biome": "^1.9.0" } }, "sha512-C1e9OkwCwXVHuHOmZ5WYzZryUVfdwAbITFKQ0ibK9dUS+d2nA7dqb7w3vU5D94Pp11z7BA6vHvShGav2C/u60g=="],
 
+    "@sylphx/doctor": ["@sylphx/doctor@1.19.1", "", { "dependencies": { "citty": "^0.1.6", "consola": "^3.4.2", "defu": "^6.1.4", "jiti": "^2.4.2", "picocolors": "^1.1.1" }, "bin": { "doctor": "dist/cli.js" } }, "sha512-uNWVYVw8rLEh5tavSDEFOCintSZaTjJ2hSkZtjmdS6xhB3UcYfX/FqJKER1yWyPXDcvPf/ILFwyMDpuuJ69B9A=="],
+
     "@sylphx/tsconfig": ["@sylphx/tsconfig@0.1.0", "", {}, "sha512-lwhP4qOBiwrRSMx7xW5d3GDwV56Vj9FkEWZeKflwI+bBYAefy/C1F306oPSxQDuJl6nlbyZ+nQ3mud1vRBnwPA=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
@@ -160,6 +163,8 @@
     "defu": ["defu@6.1.4", "", {}, "sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg=="],
 
     "fast-deep-equal": ["fast-deep-equal@3.1.3", "", {}, "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q=="],
+
+    "jiti": ["jiti@2.6.1", "", { "bin": { "jiti": "lib/jiti-cli.mjs" } }, "sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ=="],
 
     "oxc-minify": ["oxc-minify@0.77.3", "", { "optionalDependencies": { "@oxc-minify/binding-android-arm64": "0.77.3", "@oxc-minify/binding-darwin-arm64": "0.77.3", "@oxc-minify/binding-darwin-x64": "0.77.3", "@oxc-minify/binding-freebsd-x64": "0.77.3", "@oxc-minify/binding-linux-arm-gnueabihf": "0.77.3", "@oxc-minify/binding-linux-arm-musleabihf": "0.77.3", "@oxc-minify/binding-linux-arm64-gnu": "0.77.3", "@oxc-minify/binding-linux-arm64-musl": "0.77.3", "@oxc-minify/binding-linux-riscv64-gnu": "0.77.3", "@oxc-minify/binding-linux-s390x-gnu": "0.77.3", "@oxc-minify/binding-linux-x64-gnu": "0.77.3", "@oxc-minify/binding-linux-x64-musl": "0.77.3", "@oxc-minify/binding-wasm32-wasi": "0.77.3", "@oxc-minify/binding-win32-arm64-msvc": "0.77.3", "@oxc-minify/binding-win32-x64-msvc": "0.77.3" } }, "sha512-fYCSYazHno31eATVyHNyP2MEEMrVLaKVglac7bIoJC/qlb3x+Vqhv4eUViseOkoGM46rb9k8ZdDwhsEMtFUQhA=="],
 
