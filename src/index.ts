@@ -51,7 +51,7 @@ export {
 export { runBump, type BumpOptions } from './commands/bump.ts'
 export { runInit, type InitOptions } from './commands/init.ts'
 export { runPr, type PrOptions } from './commands/pr.ts'
-export { runPublish, type PublishOptions } from './commands/publish.ts'
+export { runPublish, type PublishOptions, type PublishResult } from './commands/publish.ts'
 export { runStatus, type StatusOptions } from './commands/status.ts'
 
 // Adapters

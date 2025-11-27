@@ -34,11 +34,16 @@ export interface PublishOptions {
 	dryRun?: boolean
 }
 
+export interface PublishResult {
+	published: boolean
+	packages: Array<{ name: string; version: string }>
+}
+
 /**
  * Publish packages - recalculates bumps fresh from npm baseline
  * This runs after PR merge - calculates version changes, publishes, then commits
  */
-export async function runPublish(options: PublishOptions = {}): Promise<boolean> {
+export async function runPublish(options: PublishOptions = {}): Promise<PublishResult> {
 	const cwd = options.cwd ?? process.cwd()
 
 	consola.start('Calculating version bumps from npm baseline...')
@@ -90,7 +95,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 
 		if (contexts.length === 0) {
 			consola.info('No new commits since last releases - nothing to publish')
-			return false
+			return { published: false, packages: [] }
 		}
 
 		bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
@@ -126,7 +131,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
-			return false
+			return { published: false, packages: [] }
 		}
 
 		// Query npm for the latest published version (source of truth)
@@ -148,7 +153,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 
 		if (commits.length === 0) {
 			consola.info('No new commits since last release - nothing to publish')
-			return false
+			return { published: false, packages: [] }
 		}
 
 		// Use npm version as current version (source of truth)
@@ -159,7 +164,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 
 	if (bumps.length === 0) {
 		consola.info('No version bumps needed')
-		return false
+		return { published: false, packages: [] }
 	}
 
 	consola.start(`Publishing ${bumps.length} package(s)...`)
@@ -176,7 +181,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 
 	if (options.dryRun) {
 		consola.info('Dry run - no changes will be made')
-		return false
+		return { published: false, packages: bumps.map((b) => ({ name: b.package, version: b.newVersion })) }
 	}
 
 	const repoUrl = await getGitHubRepoUrl()
@@ -283,5 +288,8 @@ export async function runPublish(options: PublishOptions = {}): Promise<boolean>
 	}
 
 	consola.success('Publish completed!')
-	return true
+	return {
+		published: true,
+		packages: publishedPackages.map((p) => ({ name: p.name, version: p.version })),
+	}
 }

@@ -121,10 +121,35 @@ runs:
           args="publish"
           [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
 
-          if $BUMP_CLI $args; then
-            echo "published=true" >> $GITHUB_OUTPUT
-          else
+          # Capture output to parse version info
+          OUTPUT=$($BUMP_CLI $args 2>&1) || {
+            echo "$OUTPUT"
             echo "published=false" >> $GITHUB_OUTPUT
             exit 1
+          }
+          echo "$OUTPUT"
+
+          # Parse the bump result marker
+          RESULT=$(echo "$OUTPUT" | grep -o '::bump-result::{.*}' | sed 's/::bump-result:://' || echo "")
+
+          if [ -n "$RESULT" ]; then
+            PUBLISHED=$(echo "$RESULT" | jq -r '.published')
+            PACKAGES=$(echo "$RESULT" | jq -c '.packages')
+
+            echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
+
+            # Set version outputs
+            PKG_COUNT=$(echo "$PACKAGES" | jq 'length')
+            if [ "$PKG_COUNT" = "1" ]; then
+              # Single package - set version
+              VERSION=$(echo "$PACKAGES" | jq -r '.[0].version')
+              echo "version=$VERSION" >> $GITHUB_OUTPUT
+            elif [ "$PKG_COUNT" -gt "1" ]; then
+              # Multiple packages - set versions as JSON object
+              VERSIONS=$(echo "$PACKAGES" | jq -c 'map({(.name): .version}) | add')
+              echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "published=false" >> $GITHUB_OUTPUT
           fi
         fi

@@ -134,10 +134,14 @@ const bump = defineCommand({
 				},
 			},
 			run: async ({ args }) => {
-				const published = await runPublish({
+				const result = await runPublish({
 					dryRun: Boolean(args['dry-run']),
 				})
-				if (!published) {
+				// Output machine-readable result for CI
+				if (result.packages.length > 0) {
+					console.log(`::bump-result::${JSON.stringify(result)}`)
+				}
+				if (!result.published) {
 					process.exit(0) // No packages to publish is not an error
 				}
 			},
