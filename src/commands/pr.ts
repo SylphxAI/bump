@@ -17,7 +17,7 @@ import {
 	loadConfig,
 	updateChangelog,
 } from '../core/index.ts'
-import type { PackageInfo, VersionBump } from '../types.ts'
+import type { VersionBump } from '../types.ts'
 import {
 	getAllTags,
 	getCurrentBranch,
@@ -362,14 +362,32 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			await $`git push -f -u origin ${PR_BRANCH}`
 
 			// Create PR (or get existing if branch already has PR)
-			const prResult =
-				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch} 2>&1 || gh pr view ${PR_BRANCH} --json url -q .url`.text()
+			// Try to create PR first, if it fails (already exists), view the existing one
+			let prUrl: string
+			const createResult =
+				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch}`
+					.quiet()
+					.nothrow()
+			if (createResult.exitCode === 0) {
+				prUrl = createResult.text().trim()
+			} else {
+				// PR might already exist, try to view it
+				const viewResult = await $`gh pr view ${PR_BRANCH} --json url -q .url`.quiet().nothrow()
+				if (viewResult.exitCode === 0) {
+					prUrl = viewResult.text().trim()
+				} else {
+					// Neither worked - throw with context
+					throw new Error(
+						`Failed to create or find PR. Create error: ${createResult.stderr.toString()}`
+					)
+				}
+			}
 
 			// Switch back
 			await $`git checkout ${baseBranch}`
 
 			consola.success('Created release PR')
-			consola.info(prResult.trim())
+			consola.info(prUrl)
 		}
 	} catch (error) {
 		// Make sure we switch back to original branch
