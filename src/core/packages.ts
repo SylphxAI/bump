@@ -99,7 +99,66 @@ export function updatePackageVersion(packagePath: string, newVersion: string): v
 }
 
 /**
- * Update dependency versions in packages
+ * Check if a dependency value uses workspace protocol
+ */
+export function isWorkspaceDep(value: string): boolean {
+	return value.startsWith('workspace:')
+}
+
+/**
+ * Resolve workspace protocol to actual version
+ * Preserves the intent: workspace:^ → ^x.x.x, workspace:~ → ~x.x.x
+ *
+ * Supported formats:
+ * - workspace:* → ^version (most common, means "any version")
+ * - workspace:^ → ^version
+ * - workspace:~ → ~version
+ * - workspace:^1.0.0 → ^1.0.0 (keeps explicit range)
+ * - workspace:~1.0.0 → ~1.0.0
+ * - workspace:1.0.0 → 1.0.0 (exact)
+ */
+export function resolveWorkspaceDep(value: string, version: string): string {
+	if (!isWorkspaceDep(value)) return value
+
+	const specifier = value.slice('workspace:'.length)
+
+	switch (specifier) {
+		case '*':
+		case '^':
+			return `^${version}`
+		case '~':
+			return `~${version}`
+		default:
+			// workspace:^1.0.0, workspace:~1.0.0, workspace:1.0.0
+			// Keep the explicit range as-is
+			return specifier
+	}
+}
+
+/**
+ * Update workspace dependencies in a deps object
+ * Returns true if any changes were made
+ */
+function updateWorkspaceDeps(
+	deps: Record<string, string> | undefined,
+	updates: Map<string, string>
+): boolean {
+	if (!deps) return false
+
+	let changed = false
+	for (const [name, version] of updates) {
+		const current = deps[name]
+		if (current && isWorkspaceDep(current)) {
+			deps[name] = resolveWorkspaceDep(current, version)
+			changed = true
+		}
+	}
+	return changed
+}
+
+/**
+ * Resolve all workspace:* dependencies to actual versions
+ * Only updates dependencies that use workspace: protocol
  */
 export function updateDependencyVersions(
 	cwd: string,
@@ -114,28 +173,35 @@ export function updateDependencyVersions(
 		const pkgPath = allPaths[i]
 		if (!pkg || !pkgPath) continue
 
-		let updated = false
-
-		for (const [name, version] of updates) {
-			// Update dependencies
-			if (pkg.dependencies?.[name]) {
-				pkg.dependencies[name] = `^${version}`
-				updated = true
-			}
-			if (pkg.devDependencies?.[name]) {
-				pkg.devDependencies[name] = `^${version}`
-				updated = true
-			}
-			if (pkg.peerDependencies?.[name]) {
-				pkg.peerDependencies[name] = `^${version}`
-				updated = true
-			}
-		}
+		const updated =
+			updateWorkspaceDeps(pkg.dependencies, updates) ||
+			updateWorkspaceDeps(pkg.devDependencies, updates) ||
+			updateWorkspaceDeps(pkg.peerDependencies, updates)
 
 		if (updated) {
 			writePackageJson(pkgPath, pkg)
 		}
 	}
+}
+
+/**
+ * Resolve ALL workspace dependencies in packages (not just bumped ones)
+ * Use this before publish to ensure all workspace: refs are resolved
+ */
+export function resolveAllWorkspaceDeps(cwd: string, packages: PackageInfo[]): void {
+	// Build version map from all packages
+	const versionMap = new Map<string, string>()
+	for (const pkg of packages) {
+		versionMap.set(pkg.name, pkg.version)
+	}
+
+	// Also check root package
+	const rootPkg = readPackageJson(cwd)
+	if (rootPkg?.name && rootPkg?.version) {
+		versionMap.set(rootPkg.name, rootPkg.version)
+	}
+
+	updateDependencyVersions(cwd, packages, versionMap)
 }
 
 /**
