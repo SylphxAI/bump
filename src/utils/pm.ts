@@ -40,7 +40,6 @@ export function getInstallCommand(pm: PackageManager): string[] {
 			return ['pnpm', 'install']
 		case 'yarn':
 			return ['yarn']
-		case 'npm':
 		default:
 			return ['npm', 'install']
 	}
@@ -57,7 +56,6 @@ export function getInstallCommandCI(pm: PackageManager): string[] {
 			return ['pnpm', 'install', '--frozen-lockfile']
 		case 'yarn':
 			return ['yarn', '--frozen-lockfile']
-		case 'npm':
 		default:
 			return ['npm', 'ci']
 	}

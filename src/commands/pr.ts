@@ -1,5 +1,5 @@
-import { $, ProcessOutput } from 'zx'
 import consola from 'consola'
+import { $ } from 'zx'
 
 // Configure zx
 $.quiet = true

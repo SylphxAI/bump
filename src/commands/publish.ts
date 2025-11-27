@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { $ } from 'zx'
 import consola from 'consola'
+import { $ } from 'zx'
 
 // Configure zx
 $.quiet = true
@@ -32,7 +32,7 @@ import {
 	getLatestTagForPackage,
 } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
-import { detectPM, getInstallCommandCI, getInstallCommand } from '../utils/pm.ts'
+import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
 
 export interface PublishOptions {
 	cwd?: string
@@ -186,7 +186,10 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 	if (options.dryRun) {
 		consola.info('Dry run - no changes will be made')
-		return { published: false, packages: bumps.map((b) => ({ name: b.package, version: b.newVersion })) }
+		return {
+			published: false,
+			packages: bumps.map((b) => ({ name: b.package, version: b.newVersion })),
+		}
 	}
 
 	const repoUrl = await getGitHubRepoUrl()
@@ -238,7 +241,9 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
 		// Use npm publish (universal across all package managers)
-		const env = process.env.NPM_TOKEN ? { ...process.env, NPM_CONFIG_TOKEN: process.env.NPM_TOKEN } : process.env
+		const env = process.env.NPM_TOKEN
+			? { ...process.env, NPM_CONFIG_TOKEN: process.env.NPM_TOKEN }
+			: process.env
 		const publishResult = await $({ cwd: pkgPath, env })`npm publish --access public`.nothrow()
 
 		if (publishResult.exitCode !== 0) {

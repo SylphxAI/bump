@@ -172,8 +172,7 @@ export function calculateSingleBump(
 	// config.prerelease is string | false | undefined
 	const configPrerelease = config.prerelease
 	const preid =
-		options?.preid ??
-		(typeof configPrerelease === 'string' ? configPrerelease : undefined)
+		options?.preid ?? (typeof configPrerelease === 'string' ? configPrerelease : undefined)
 	const prerelease = options?.prerelease ?? !!preid
 
 	// Convert to pre-release type if requested
@@ -227,8 +226,7 @@ export function calculateMonorepoBumps(
 	// config.prerelease is string | false | undefined
 	const configPrerelease = config.prerelease
 	const preid =
-		options?.preid ??
-		(typeof configPrerelease === 'string' ? configPrerelease : undefined)
+		options?.preid ?? (typeof configPrerelease === 'string' ? configPrerelease : undefined)
 	const prerelease = options?.prerelease ?? !!preid
 
 	for (const ctx of contexts) {

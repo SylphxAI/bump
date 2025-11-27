@@ -23,7 +23,7 @@ let cachedGitHubRepoUrl: string | null = null
  */
 export async function getGitRoot(): Promise<string> {
 	if (cachedGitRoot !== null) return cachedGitRoot
-	const result = await $`git rev-parse --show-toplevel`.then(r => r.stdout)
+	const result = await $`git rev-parse --show-toplevel`.then((r) => r.stdout)
 	cachedGitRoot = result.trim()
 	return cachedGitRoot
 }
@@ -33,7 +33,9 @@ export async function getGitRoot(): Promise<string> {
  */
 export async function getCommitFiles(hash: string): Promise<string[]> {
 	try {
-		const result = await $`git diff-tree --no-commit-id --name-only -r ${hash}`.then(r => r.stdout)
+		const result = await $`git diff-tree --no-commit-id --name-only -r ${hash}`.then(
+			(r) => r.stdout
+		)
 		return result.trim().split('\n').filter(Boolean)
 	} catch {
 		return []
@@ -51,9 +53,11 @@ export async function getCommitsSince(ref?: string): Promise<GitCommit[]> {
 
 	let result: string
 	if (ref) {
-		result = await $`git log ${ref}..HEAD --pretty=format:${format} --name-only`.then(r => r.stdout)
+		result = await $`git log ${ref}..HEAD --pretty=format:${format} --name-only`.then(
+			(r) => r.stdout
+		)
 	} else {
-		result = await $`git log --pretty=format:${format} --name-only`.then(r => r.stdout)
+		result = await $`git log --pretty=format:${format} --name-only`.then((r) => r.stdout)
 	}
 
 	if (!result.trim()) return []
@@ -100,7 +104,7 @@ function isSemverTag(tag: string): boolean {
 export async function getLatestTag(pattern?: string): Promise<string | null> {
 	try {
 		// Get all tags sorted by version (newest first)
-		const result = await $`git tag -l --sort=-v:refname`.then(r => r.stdout)
+		const result = await $`git tag -l --sort=-v:refname`.then((r) => r.stdout)
 		const allTags = result.trim().split('\n').filter(Boolean)
 
 		// Filter to semver tags only
@@ -127,7 +131,7 @@ let cachedTags: string[] | null = null
  */
 export async function getAllTags(): Promise<string[]> {
 	if (cachedTags !== null) return cachedTags
-	const result = await $`git tag -l`.then(r => r.stdout)
+	const result = await $`git tag -l`.then((r) => r.stdout)
 	cachedTags = result.trim().split('\n').filter(Boolean)
 	return cachedTags
 }
@@ -216,7 +220,7 @@ export function findTagForVersion(
  */
 export async function getCommitForTag(tag: string): Promise<string | null> {
 	try {
-		const result = await $`git rev-list -n 1 ${tag}`.then(r => r.stdout)
+		const result = await $`git rev-list -n 1 ${tag}`.then((r) => r.stdout)
 		return result.trim() || null
 	} catch {
 		return null
@@ -266,7 +270,7 @@ export async function push(): Promise<void> {
  * Get current branch name
  */
 export async function getCurrentBranch(): Promise<string> {
-	const result = await $`git rev-parse --abbrev-ref HEAD`.then(r => r.stdout)
+	const result = await $`git rev-parse --abbrev-ref HEAD`.then((r) => r.stdout)
 	return result.trim()
 }
 
@@ -274,7 +278,7 @@ export async function getCurrentBranch(): Promise<string> {
  * Check if working directory is clean
  */
 export async function isWorkingTreeClean(): Promise<boolean> {
-	const result = await $`git status --porcelain`.then(r => r.stdout)
+	const result = await $`git status --porcelain`.then((r) => r.stdout)
 	return !result.trim()
 }
 
@@ -285,7 +289,7 @@ export async function getRemoteUrl(remote = 'origin'): Promise<string | null> {
 	// Only cache 'origin' remote
 	if (remote === 'origin' && cachedRemoteUrl !== null) return cachedRemoteUrl
 	try {
-		const result = await $`git remote get-url ${remote}`.then(r => r.stdout)
+		const result = await $`git remote get-url ${remote}`.then((r) => r.stdout)
 		const url = result.trim() || null
 		if (remote === 'origin') cachedRemoteUrl = url
 		return url

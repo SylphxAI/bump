@@ -72,8 +72,10 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			const commits = await getConventionalCommits(baselineTag ?? undefined)
 
 			console.log(`  ${pc.cyan(pkg.name)}`)
-			const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'none'
-			console.log(`    ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`)
+			const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'none')
+			console.log(
+				`    ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`
+			)
 			console.log(`    ${pc.dim('Baseline:')} ${baseline}`)
 			console.log(`    ${pc.dim('Commits:')} ${pc.bold(commits.length)}`)
 
@@ -143,8 +145,10 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			baselineTag = await getLatestTag()
 		}
 
-		const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'none'
-		console.log(`  ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`)
+		const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'none')
+		console.log(
+			`  ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`
+		)
 		console.log(`  ${pc.dim('Baseline:')} ${baseline}`)
 		console.log()
 

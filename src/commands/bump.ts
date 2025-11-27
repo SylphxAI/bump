@@ -113,7 +113,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 				}
 			}
 
-			const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'no previous release'
+			const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'no previous release')
 			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 		}
 
@@ -170,7 +170,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'beginning'
+		const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'beginning')
 		consola.info(`Found ${pc.bold(commits.length)} commits since ${baseline}`)
 
 		if (options.verbose) {

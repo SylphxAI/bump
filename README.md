@@ -146,31 +146,36 @@ Then go to Actions → Release → Run workflow.
 You can also use bump locally:
 
 ```bash
-# Install
+# Install (works with any package manager)
+npm add -D @sylphx/bump
+pnpm add -D @sylphx/bump
+yarn add -D @sylphx/bump
 bun add -D @sylphx/bump
 
 # Check what would be released
-bunx bump status
+npx bump status
 
 # Preview release
-bunx bump --dry-run
+npx bump --dry-run
 
 # Release
-bunx bump
+npx bump
 
 # Pre-release (shorthand)
-bunx bump --alpha              # 1.0.0 → 1.1.0-alpha.0
-bunx bump --beta               # 1.0.0 → 1.1.0-beta.0
-bunx bump --rc                 # 1.0.0 → 1.1.0-rc.0
+npx bump --alpha              # 1.0.0 → 1.1.0-alpha.0
+npx bump --beta               # 1.0.0 → 1.1.0-beta.0
+npx bump --rc                 # 1.0.0 → 1.1.0-rc.0
 
 # Pre-release (explicit)
-bunx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
-bunx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
+npx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
+npx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
 
 # Debug mode
-bunx bump --verbose            # Show detailed debug output
-bunx bump -v --dry-run         # Debug + preview
+npx bump --verbose            # Show detailed debug output
+npx bump -v --dry-run         # Debug + preview
 ```
+
+> **Note**: Replace `npx` with `bunx`, `pnpm dlx`, or `yarn dlx` based on your package manager.
 
 ## Monorepo Support
 
@@ -274,8 +279,8 @@ Workflow:
 ### Option 2: CLI flags
 
 ```bash
-bunx bump --preid beta      # 1.0.0 → 1.1.0-beta.0
-bunx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
+npx bump --preid beta      # 1.0.0 → 1.1.0-beta.0
+npx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
 ```
 
 ## Action Inputs
