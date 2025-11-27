@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.1.1 (2025-11-27)
+
+### 🐛 Bug Fixes
+
+- **publish:** restore workspace:* deps after publish ([9926c81](https://github.com/SylphxAI/bump/commit/9926c817a92539c41dbe04a0fe7352d095ea8450))
+
 ## 1.1.0 (2025-11-27)
 
 ### ✨ Features
