@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 0.13.0 (2025-11-27)
+
+### ✨ Features
+
+- atomic publish - PR only stores pending bumps, publish applies changes after merge ([b7f566d](https://github.com/SylphxAI/bump/commit/b7f566df7c7a34842c71ddcab592e5faa948f141))
+
 ## 0.12.1 (2025-11-27)
 
 ### 🐛 Bug Fixes
