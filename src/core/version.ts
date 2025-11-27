@@ -190,8 +190,8 @@ export function calculateSingleBump(
 		releaseType = preReleaseMap[releaseType] ?? releaseType
 	}
 
-	// Check for graduation (0.x → 1.0.0)
-	const shouldGraduate = commits.some((c) => c.graduate)
+	// Check for graduation (0.x → 1.0.0) - config or commit-based
+	const shouldGraduate = config.graduate || commits.some((c) => c.graduate)
 	const isZeroVersion = semver.major(pkg.version) === 0
 
 	let newVersion: string
@@ -259,8 +259,8 @@ export function calculateMonorepoBumps(
 				releaseType = preReleaseMap[releaseType] ?? releaseType
 			}
 
-			// Check for graduation (0.x → 1.0.0)
-			const shouldGraduate = relevantCommits.some((c) => c.graduate)
+			// Check for graduation (0.x → 1.0.0) - config or commit-based
+			const shouldGraduate = config.graduate || relevantCommits.some((c) => c.graduate)
 			const isZeroVersion = semver.major(ctx.package.version) === 0
 
 			let newVersion: string

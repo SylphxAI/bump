@@ -16,6 +16,9 @@ export interface BumpConfig {
 	/** Pre-release identifier (alpha, beta, rc) - set to create pre-release versions */
 	prerelease?: string | false
 
+	/** Graduate from 0.x to 1.0.0 (stable release) */
+	graduate?: boolean
+
 	/** Conventional commits configuration */
 	conventional?: {
 		/** Preset to use */
