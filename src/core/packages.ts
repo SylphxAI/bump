@@ -135,6 +135,70 @@ export function resolveWorkspaceDep(value: string, version: string): string {
 	}
 }
 
+/** Saved workspace deps: path -> depType -> depName -> originalValue */
+export type WorkspaceDepsSnapshot = Map<string, Map<string, Map<string, string>>>
+
+/**
+ * Save all workspace: dependencies before resolution
+ * Returns a snapshot that can be used to restore them later
+ */
+export function saveWorkspaceDeps(cwd: string, packages: PackageInfo[]): WorkspaceDepsSnapshot {
+	const snapshot: WorkspaceDepsSnapshot = new Map()
+
+	const allPaths = [cwd, ...packages.map((p) => p.path)]
+
+	for (const pkgPath of allPaths) {
+		const pkg = readPackageJson(pkgPath)
+		if (!pkg) continue
+
+		const pkgSnapshot = new Map<string, Map<string, string>>()
+
+		for (const depType of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
+			const deps = pkg[depType]
+			if (!deps) continue
+
+			const depTypeSnapshot = new Map<string, string>()
+			for (const [name, version] of Object.entries(deps)) {
+				if (isWorkspaceDep(version)) {
+					depTypeSnapshot.set(name, version)
+				}
+			}
+
+			if (depTypeSnapshot.size > 0) {
+				pkgSnapshot.set(depType, depTypeSnapshot)
+			}
+		}
+
+		if (pkgSnapshot.size > 0) {
+			snapshot.set(pkgPath, pkgSnapshot)
+		}
+	}
+
+	return snapshot
+}
+
+/**
+ * Restore workspace: dependencies from a snapshot
+ * Call this after publish to restore workspace:* values before committing
+ */
+export function restoreWorkspaceDeps(snapshot: WorkspaceDepsSnapshot): void {
+	for (const [pkgPath, pkgSnapshot] of snapshot) {
+		const pkg = readPackageJson(pkgPath)
+		if (!pkg) continue
+
+		for (const [depType, depTypeSnapshot] of pkgSnapshot) {
+			const deps = pkg[depType as 'dependencies' | 'devDependencies' | 'peerDependencies']
+			if (!deps) continue
+
+			for (const [name, originalValue] of depTypeSnapshot) {
+				deps[name] = originalValue
+			}
+		}
+
+		writePackageJson(pkgPath, pkg)
+	}
+}
+
 /**
  * Update workspace dependencies in a deps object
  * Returns true if any changes were made

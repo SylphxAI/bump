@@ -19,6 +19,8 @@ import {
 	isMonorepo,
 	loadConfig,
 	resolveAllWorkspaceDeps,
+	restoreWorkspaceDeps,
+	saveWorkspaceDeps,
 	updateChangelog,
 	updatePackageVersion,
 } from '../core/index.ts'
@@ -240,9 +242,12 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 	// Step 1.5: Resolve ALL workspace:* dependencies to actual versions
 	// We handle this ourselves for full package manager compatibility (npm, yarn, pnpm, bun)
+	// Save original workspace deps first so we can restore after publish
+	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
 	if (packages.length > 0) {
 		// Re-read packages to get updated versions after Step 1
 		const updatedPackages = await discoverPackages(cwd, config)
+		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, updatedPackages)
 		resolveAllWorkspaceDeps(cwd, updatedPackages)
 		consola.info('  Resolved workspace dependencies')
 	}
@@ -308,6 +313,13 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		consola.error('Publish failed - aborting without committing changes')
 		consola.info('Fix the issue and re-run the workflow')
 		process.exit(1)
+	}
+
+	// Step 3.5: Restore workspace:* deps before committing
+	// This keeps workspace protocol in source while publishing resolved versions
+	if (workspaceDepsSnapshot) {
+		restoreWorkspaceDeps(workspaceDepsSnapshot)
+		consola.info('  Restored workspace dependencies')
 	}
 
 	// Step 4: Commit version changes (only after successful publish)

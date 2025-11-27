@@ -33,6 +33,8 @@ export {
 	updatePackageVersion,
 	updateDependencyVersions,
 	resolveAllWorkspaceDeps,
+	saveWorkspaceDeps,
+	restoreWorkspaceDeps,
 	isWorkspaceDep,
 	resolveWorkspaceDep,
 	isMonorepo,
