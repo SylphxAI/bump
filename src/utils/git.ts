@@ -186,6 +186,47 @@ export function parseVersionFromPackageTag(tag: string, packageName: string): st
 }
 
 /**
+ * Find the tag for a specific version
+ * For monorepo: looks for @scope/pkg@version or pkg@version
+ * For single repo: looks for vX.X.X or X.X.X
+ */
+export function findTagForVersion(
+	version: string,
+	allTags: string[],
+	packageName?: string
+): string | null {
+	if (packageName) {
+		// Monorepo: look for package@version format
+		const tag = `${packageName}@${version}`
+		if (allTags.includes(tag)) {
+			return tag
+		}
+	} else {
+		// Single repo: look for vX.X.X or X.X.X format
+		const vTag = `v${version}`
+		if (allTags.includes(vTag)) {
+			return vTag
+		}
+		if (allTags.includes(version)) {
+			return version
+		}
+	}
+	return null
+}
+
+/**
+ * Get the commit SHA for a tag
+ */
+export async function getCommitForTag(tag: string): Promise<string | null> {
+	try {
+		const result = await $`git rev-list -n 1 ${tag}`.text()
+		return result.trim() || null
+	} catch {
+		return null
+	}
+}
+
+/**
  * Create a new tag
  */
 export async function createTag(tag: string, message?: string): Promise<void> {

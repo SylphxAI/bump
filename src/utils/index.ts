@@ -13,7 +13,10 @@ export {
 	isWorkingTreeClean,
 	getRemoteUrl,
 	parseGitHubRepo,
+	findTagForVersion,
+	getCommitForTag,
 } from './git.ts'
+export { getNpmPublishedVersion, getNpmPublishedVersions, isPackagePublished } from './npm.ts'
 export {
 	BumpError,
 	GitError,

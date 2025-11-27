@@ -12,12 +12,15 @@ import {
 	loadConfig,
 } from '../core/index.ts'
 import {
+	findTagForVersion,
+	getAllTags,
 	getCurrentBranch,
 	getGitRoot,
 	getLatestTag,
 	getLatestTagForPackage,
 	isWorkingTreeClean,
 } from '../utils/git.ts'
+import { getNpmPublishedVersion } from '../utils/npm.ts'
 
 export interface StatusOptions {
 	cwd?: string
@@ -48,21 +51,37 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 		const contexts: MonorepoBumpContext[] = []
 		let totalCommits = 0
 
+		// Pre-fetch all tags once
+		const allTags = await getAllTags()
+
 		for (const pkg of packages) {
-			const latestTag = await getLatestTagForPackage(pkg.name)
-			const commits = await getConventionalCommits(latestTag ?? undefined)
+			// Query npm for the latest published version (source of truth)
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+
+			// Find the git tag corresponding to that npm version
+			let baselineTag: string | null = null
+			if (npmVersion) {
+				baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
+			}
+
+			// Fall back to latest git tag if npm version not found or tag missing
+			if (!baselineTag) {
+				baselineTag = await getLatestTagForPackage(pkg.name, allTags)
+			}
+
+			const commits = await getConventionalCommits(baselineTag ?? undefined)
 
 			console.log(`  ${pc.cyan(pkg.name)}`)
-			console.log(
-				`    ${pc.dim('Latest tag:')} ${latestTag ? pc.green(latestTag) : pc.dim('none')}`
-			)
+			const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'none'
+			console.log(`    ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`)
+			console.log(`    ${pc.dim('Baseline:')} ${baseline}`)
 			console.log(`    ${pc.dim('Commits:')} ${pc.bold(commits.length)}`)
 
 			if (commits.length > 0) {
 				contexts.push({
 					package: pkg,
 					commits,
-					latestTag,
+					latestTag: baselineTag,
 				})
 				totalCommits += commits.length
 
@@ -102,12 +121,34 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			consola.info('No version bumps needed')
 		}
 	} else {
-		// Single package mode
-		const latestTag = await getLatestTag()
-		console.log(`  ${pc.dim('Latest tag:')} ${latestTag ? pc.cyan(latestTag) : pc.dim('none')}`)
+		// Single package mode - use npm published version as baseline
+		const pkg = getSinglePackage(cwd)
+		if (!pkg) {
+			consola.error('No package.json found')
+			return
+		}
+
+		// Query npm for the latest published version (source of truth)
+		const npmVersion = await getNpmPublishedVersion(pkg.name)
+		const allTags = await getAllTags()
+
+		// Find the git tag corresponding to that npm version
+		let baselineTag: string | null = null
+		if (npmVersion) {
+			baselineTag = findTagForVersion(npmVersion, allTags)
+		}
+
+		// Fall back to latest git tag if npm version not found or tag missing
+		if (!baselineTag) {
+			baselineTag = await getLatestTag()
+		}
+
+		const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'none'
+		console.log(`  ${pc.dim('Published:')} ${npmVersion ? pc.green(npmVersion) : pc.dim('not published')}`)
+		console.log(`  ${pc.dim('Baseline:')} ${baseline}`)
 		console.log()
 
-		const commits = await getConventionalCommits(latestTag ?? undefined)
+		const commits = await getConventionalCommits(baselineTag ?? undefined)
 
 		if (commits.length === 0) {
 			consola.info('No unreleased commits')
@@ -131,15 +172,12 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log()
 		}
 
-		const pkg = getSinglePackage(cwd)
-		if (pkg) {
-			const bump = calculateSingleBump(pkg, commits, config)
-			if (bump) {
-				console.log(`${pc.bold('Planned version bump:')}\n`)
-				console.log(
-					`  ${pc.cyan(bump.package)}: ${pc.dim(bump.currentVersion)} → ${pc.green(bump.newVersion)} (${bump.releaseType})`
-				)
-			}
+		const bump = calculateSingleBump(pkg, commits, config)
+		if (bump) {
+			console.log(`${pc.bold('Planned version bump:')}\n`)
+			console.log(
+				`  ${pc.cyan(bump.package)}: ${pc.dim(bump.currentVersion)} → ${pc.green(bump.newVersion)} (${bump.releaseType})`
+			)
 		}
 	}
 }

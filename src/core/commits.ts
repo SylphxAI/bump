@@ -37,6 +37,9 @@ export function parseConventionalCommit(commit: GitCommit): ConventionalCommit |
 /**
  * Check if a commit is a release commit that should be excluded from bump calculation
  * Release commits are created by bump and should not trigger new releases
+ *
+ * NOTE: With npm-based baseline (querying npm for published version), this filter
+ * is less critical but still useful for edge cases where git tag is ahead of npm.
  */
 function isReleaseCommit(commit: ConventionalCommit): boolean {
 	// Skip chore(release) commits - these are bump-generated release commits
@@ -45,10 +48,10 @@ function isReleaseCommit(commit: ConventionalCommit): boolean {
 	}
 
 	// Skip commits with release-like subjects (fallback)
+	// These patterns match version-only subjects, not general text containing "release"
 	const releasePatterns = [
-		/^v?\d+\.\d+\.\d+/, // starts with version
-		/^@[\w/-]+@\d+\.\d+\.\d+/, // scoped package@version
-		/release/i, // contains "release"
+		/^v?\d+\.\d+\.\d+$/, // exact version match: v1.0.0 or 1.0.0
+		/^@[\w/-]+@\d+\.\d+\.\d+$/, // scoped package@version: @scope/pkg@1.0.0
 	]
 
 	for (const pattern of releasePatterns) {

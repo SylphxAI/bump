@@ -20,12 +20,14 @@ import {
 import type { VersionBump } from '../types.ts'
 import {
 	getAllTags,
+	findTagForVersion,
 	getCurrentBranch,
 	getGitHubRepoUrl,
 	getGitRoot,
 	getLatestTag,
 	getLatestTagForPackage,
 } from '../utils/git.ts'
+import { getNpmPublishedVersion } from '../utils/npm.ts'
 
 /**
  * Update package.json version directly (no npm dependency)
@@ -172,23 +174,37 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 		// Pre-fetch all tags once for reuse
 		const allTags = await getAllTags()
 
-		// Process all packages in parallel
+		// Process all packages in parallel - use npm published version as baseline
 		const packageResults = await Promise.all(
 			packages.map(async (pkg) => {
-				const latestTag = await getLatestTagForPackage(pkg.name, allTags)
-				const commits = await getConventionalCommits(latestTag ?? undefined)
-				return { pkg, latestTag, commits }
+				// Query npm for the latest published version (source of truth)
+				const npmVersion = await getNpmPublishedVersion(pkg.name)
+
+				// Find the git tag corresponding to that npm version
+				let baselineTag: string | null = null
+				if (npmVersion) {
+					baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
+				}
+
+				// Fall back to latest git tag if npm version not found or tag missing
+				// This handles first release or packages not yet published
+				if (!baselineTag) {
+					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
+				}
+
+				const commits = await getConventionalCommits(baselineTag ?? undefined)
+				return { pkg, baselineTag, npmVersion, commits }
 			})
 		)
 
 		// Build contexts from parallel results
 		const contexts: MonorepoBumpContext[] = []
-		for (const { pkg, latestTag, commits } of packageResults) {
+		for (const { pkg, baselineTag, commits } of packageResults) {
 			if (commits.length > 0) {
 				contexts.push({
 					package: pkg,
 					commits,
-					latestTag,
+					latestTag: baselineTag,
 				})
 			}
 		}
@@ -226,9 +242,29 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 		}
 	} else {
-		// Single package mode
-		const latestTag = await getLatestTag()
-		const commits = await getConventionalCommits(latestTag ?? undefined)
+		// Single package mode - use npm published version as baseline
+		const pkg = getSinglePackage(cwd)
+		if (!pkg) {
+			consola.error('No package.json found')
+			return
+		}
+
+		// Query npm for the latest published version (source of truth)
+		const npmVersion = await getNpmPublishedVersion(pkg.name)
+		const allTags = await getAllTags()
+
+		// Find the git tag corresponding to that npm version
+		let baselineTag: string | null = null
+		if (npmVersion) {
+			baselineTag = findTagForVersion(npmVersion, allTags)
+		}
+
+		// Fall back to latest git tag if npm version not found or tag missing
+		if (!baselineTag) {
+			baselineTag = await getLatestTag()
+		}
+
+		const commits = await getConventionalCommits(baselineTag ?? undefined)
 
 		if (commits.length === 0) {
 			consola.info('No new commits since last release')
@@ -244,11 +280,6 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		const pkg = getSinglePackage(cwd)
-		if (!pkg) {
-			consola.error('No package.json found')
-			return
-		}
 		const bump = calculateSingleBump(pkg, commits, config)
 		if (bump) bumps = [bump]
 	}

@@ -20,6 +20,7 @@ import type { ReleaseContext, VersionBump } from '../types.ts'
 import {
 	commit,
 	createTag,
+	findTagForVersion,
 	getAllTags,
 	getGitHubRepoUrl,
 	getGitRoot,
@@ -28,6 +29,7 @@ import {
 	isWorkingTreeClean,
 	stageFiles,
 } from '../utils/git.ts'
+import { getNpmPublishedVersion } from '../utils/npm.ts'
 
 export interface BumpOptions {
 	cwd?: string
@@ -72,23 +74,36 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		// Pre-fetch all tags once for reuse
 		const allTags = await getAllTags()
 
-		// Process all packages in parallel - get tags and commits concurrently
+		// Process all packages in parallel - use npm published version as baseline
 		const packageResults = await Promise.all(
 			packages.map(async (pkg) => {
-				const latestTag = await getLatestTagForPackage(pkg.name, allTags)
-				const commits = await getConventionalCommits(latestTag ?? undefined)
-				return { pkg, latestTag, commits }
+				// Query npm for the latest published version (source of truth)
+				const npmVersion = await getNpmPublishedVersion(pkg.name)
+
+				// Find the git tag corresponding to that npm version
+				let baselineTag: string | null = null
+				if (npmVersion) {
+					baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
+				}
+
+				// Fall back to latest git tag if npm version not found or tag missing
+				if (!baselineTag) {
+					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
+				}
+
+				const commits = await getConventionalCommits(baselineTag ?? undefined)
+				return { pkg, baselineTag, npmVersion, commits }
 			})
 		)
 
 		// Build contexts from parallel results
 		const contexts: MonorepoBumpContext[] = []
-		for (const { pkg, latestTag, commits } of packageResults) {
+		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
 			if (commits.length > 0) {
 				contexts.push({
 					package: pkg,
 					commits,
-					latestTag,
+					latestTag: baselineTag,
 				})
 				// Collect all commits for reporting
 				for (const c of commits) {
@@ -98,11 +113,8 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 				}
 			}
 
-			if (latestTag) {
-				consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${latestTag}`)
-			} else {
-				consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits (no previous release)`)
-			}
+			const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'no previous release'
+			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 		}
 
 		if (contexts.length === 0) {
@@ -122,9 +134,29 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			prerelease: options.prerelease,
 		})
 	} else {
-		// Single package mode
-		const latestTag = await getLatestTag()
-		const commits = await getConventionalCommits(latestTag ?? undefined)
+		// Single package mode - use npm published version as baseline
+		const pkg = getSinglePackage(cwd)
+		if (!pkg) {
+			consola.error('No package.json found')
+			return { config, packages: [], commits: [], bumps: [], dryRun: options.dryRun ?? false }
+		}
+
+		// Query npm for the latest published version (source of truth)
+		const npmVersion = await getNpmPublishedVersion(pkg.name)
+		const allTags = await getAllTags()
+
+		// Find the git tag corresponding to that npm version
+		let baselineTag: string | null = null
+		if (npmVersion) {
+			baselineTag = findTagForVersion(npmVersion, allTags)
+		}
+
+		// Fall back to latest git tag if npm version not found or tag missing
+		if (!baselineTag) {
+			baselineTag = await getLatestTag()
+		}
+
+		const commits = await getConventionalCommits(baselineTag ?? undefined)
 		allCommits = commits
 
 		if (commits.length === 0) {
@@ -138,7 +170,8 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		consola.info(`Found ${pc.bold(commits.length)} commits since ${latestTag ?? 'beginning'}`)
+		const baseline = npmVersion ? `npm@${npmVersion}` : baselineTag ?? 'beginning'
+		consola.info(`Found ${pc.bold(commits.length)} commits since ${baseline}`)
 
 		if (options.verbose) {
 			consola.debug('Commits:')
@@ -147,15 +180,6 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 					`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`
 				)
 			}
-		}
-
-		const pkg = getSinglePackage(cwd)
-		if (!pkg) {
-			consola.error('No package.json found')
-			return { config, packages: [], commits, bumps: [], dryRun: options.dryRun ?? false }
-		}
-
-		if (options.verbose) {
 			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
 		}
 
