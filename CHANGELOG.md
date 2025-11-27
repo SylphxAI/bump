@@ -1,5 +1,19 @@
 # @sylphx/bump
 
+## 0.13.1 (2025-11-27)
+
+### ♻️ Refactoring
+
+- simplify release flow - PR preview-only, publish recalculates fresh ([a976b31](https://github.com/SylphxAI/bump/commit/a976b3161d156a3f6780424f0eb6a0eb449f7420))
+
+### 👷 CI
+
+- add permissions for release workflow ([28fbaab](https://github.com/SylphxAI/bump/commit/28fbaab139c8181266a49bcf7044bdd2be26e90d))
+
+### 🔧 Chores
+
+- cleanup .bump-pending.json ([a959ce1](https://github.com/SylphxAI/bump/commit/a959ce14577465136c5aacc33e8c140f53216a53))
+
 ## 0.13.0 (2025-11-27)
 
 ### ✨ Features
