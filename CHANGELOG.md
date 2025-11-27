@@ -1,5 +1,27 @@
 # @sylphx/bump
 
+## 1.0.0 (2025-11-27)
+
+### ✨ Features
+
+- graduate to stable 1.0.0 release ([0878ba7](https://github.com/SylphxAI/bump/commit/0878ba7f7a3a976f5859e478534ce91ae702d4ac))
+
+### 🐛 Bug Fixes
+
+- detect graduate keyword in commit subject ([1a4e24b](https://github.com/SylphxAI/bump/commit/1a4e24bb81b071923fd02868b55bb5c515d7e851))
+
+### ♻️ Refactoring
+
+- remove commit message graduate detection, use config/CLI only ([d64946f](https://github.com/SylphxAI/bump/commit/d64946fdbb93b7e1fabae850b51f362229c2beca))
+
+### 📚 Documentation
+
+- add graduate feature documentation ([601f471](https://github.com/SylphxAI/bump/commit/601f471af1bbd31bd59a245570120edf9db052bf))
+
+### 🔧 Chores
+
+- add graduate config for 1.0.0 release ([c2b23f4](https://github.com/SylphxAI/bump/commit/c2b23f496a8df53ae2b2ba3fe53fa32a3c02efd3))
+
 ## 0.14.2 (2025-11-27)
 
 ### ✨ Features
