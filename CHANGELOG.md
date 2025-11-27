@@ -1,5 +1,17 @@
 # @sylphx/bump
 
+## 0.14.1 (2025-11-27)
+
+### ✨ Features
+
+- add graduate config option for 0.x → 1.0.0 ([907a07f](https://github.com/SylphxAI/bump/commit/907a07f9c341570d5ec139c12d14b6bb0c2efb18))
+- add GRADUATE:/STABLE: commit footer to trigger 0.x → 1.0.0 ([eea2bdb](https://github.com/SylphxAI/bump/commit/eea2bdb99c808cd4b536f6359782d5786a9871dc))
+- apply semver 0.x rules (breaking→minor, feature→patch) ([9bfe30a](https://github.com/SylphxAI/bump/commit/9bfe30a5aa049fc9fc7de6a3e76f962e037f8d9d))
+
+### ♻️ Refactoring
+
+- unify version/versions output to single versions object ([2646afc](https://github.com/SylphxAI/bump/commit/2646afcef9e97be1d0bd2b9930f12dc9079065c1))
+
 ## 0.14.0 (2025-11-27)
 
 ### ✨ Features
