@@ -97,7 +97,7 @@ runs:
           # Check for squash merge: commit message starts with "chore(release):"
           # Check for merge commit: "Merge pull request #X from .../bump/release" or "Merge branch 'bump/release'"
           if [[ "$LATEST_COMMIT_MSG" == chore\(release\):* ]] || \
-             [[ "$LATEST_COMMIT_MSG" == *"bump/release"* ]]; then
+             [[ "$LATEST_COMMIT_MSG" == Merge*bump/release* ]]; then
             MODE="publish"
             echo "Detected release PR merge - switching to publish mode"
           else
