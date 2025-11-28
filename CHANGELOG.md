@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.2.1 (2025-11-28)
+
+### 🐛 Bug Fixes
+
+- **action:** detect merge commits from bump/release branch ([13bcabc](https://github.com/SylphxAI/bump/commit/13bcabc9789b346f170467fc1391dabec19d8d25))
+
 ## 1.2.0 (2025-11-28)
 
 ### ✨ Features
