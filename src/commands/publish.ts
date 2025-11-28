@@ -60,21 +60,25 @@ async function isReleaseCommit(): Promise<boolean> {
 /**
  * Parse package versions from existing release commit message
  * Returns map of package name -> version
+ *
+ * Supported formats:
+ * - Single: "chore(release): @scope/pkg@1.0.0"
+ * - Comma-separated: "chore(release): @scope/pkg1@1.0.0, @scope/pkg2@2.0.0"
+ * - Bullet list: "chore(release): 2 packages\n\n- @scope/pkg1@1.0.0\n- @scope/pkg2@2.0.0"
  */
 function parseReleaseCommitVersions(message: string): Map<string, string> {
 	const versions = new Map<string, string>()
 
-	// Single package: "chore(release): @scope/pkg@1.0.0"
-	// Multi package: "chore(release): 2 packages\n\n- @scope/pkg1@1.0.0\n- @scope/pkg2@1.0.0"
-	const singleMatch = message.match(/^chore\(release\): (@?[\w\/-]+)@(\d+\.\d+\.\d+)/)
-	if (singleMatch) {
-		versions.set(singleMatch[1], singleMatch[2])
-		return versions
+	// Try to match all @package@version patterns in the first line
+	const firstLine = message.split('\n')[0]
+	const inlineMatches = firstLine.matchAll(/(@?[\w@\/-]+)@(\d+\.\d+\.\d+)/g)
+	for (const match of inlineMatches) {
+		versions.set(match[1], match[2])
 	}
 
-	// Multi-package format
-	const multiMatches = message.matchAll(/- (@?[\w\/-]+)@(\d+\.\d+\.\d+)/g)
-	for (const match of multiMatches) {
+	// Also check for bullet list format in the body
+	const bulletMatches = message.matchAll(/^- (@?[\w@\/-]+)@(\d+\.\d+\.\d+)/gm)
+	for (const match of bulletMatches) {
 		versions.set(match[1], match[2])
 	}
 
