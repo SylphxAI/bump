@@ -219,8 +219,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				})
 			} else {
 				// Already published: calculate bump from npm version
+				const pkgWithNpmVersion = { ...pkg, version: npmVersion }
 				contexts.push({
-					package: pkg,
+					package: pkgWithNpmVersion,
 					commits,
 					latestTag: baselineTag,
 				})
