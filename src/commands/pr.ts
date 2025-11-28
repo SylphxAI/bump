@@ -124,6 +124,9 @@ function generatePrBody(
 	lines.push('> - Publish to npm')
 	lines.push('> - Create GitHub Release')
 	lines.push('')
+	lines.push('> [!IMPORTANT]')
+	lines.push('> **Please use "Squash and merge"** to merge this PR.')
+	lines.push('')
 	lines.push(
 		'_This PR is automatically maintained by [@sylphx/bump](https://github.com/SylphxAI/bump)_'
 	)
