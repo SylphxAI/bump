@@ -1,5 +1,12 @@
 # @sylphx/bump
 
+## 1.3.5 (2025-11-28)
+
+### ♻️ Refactoring
+
+- code quality improvements and bug fixes ([afe63ec](https://github.com/SylphxAI/bump/commit/afe63ec25566610291a8f2e3de167472dbf7fd3b))
+- **publish:** compare versions instead of parsing commit message ([8d63d50](https://github.com/SylphxAI/bump/commit/8d63d50507db22d1cbdba1e210b6a7ddeacf6204))
+
 ## 1.3.4 (2025-11-28)
 
 ### 🐛 Bug Fixes
