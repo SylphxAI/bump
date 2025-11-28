@@ -41,3 +41,11 @@ export {
 	findDependentPackages,
 	calculateCascadeBumps,
 } from './packages.ts'
+export {
+	getPackageReleaseInfos,
+	getSinglePackageReleaseInfo,
+	calculateBumpsFromInfos,
+	calculateSingleBumpFromInfo,
+	type PackageReleaseInfo,
+	type CalculateBumpsResult,
+} from './release.ts'

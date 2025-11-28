@@ -1,26 +1,17 @@
 import consola from 'consola'
 import pc from 'picocolors'
 import {
-	type MonorepoBumpContext,
-	calculateMonorepoBumps,
-	calculateSingleBump,
+	calculateBumpsFromInfos,
+	calculateSingleBumpFromInfo,
 	discoverPackages,
-	getConventionalCommits,
+	getPackageReleaseInfos,
 	getSinglePackage,
+	getSinglePackageReleaseInfo,
 	groupCommitsByType,
 	isMonorepo,
 	loadConfig,
 } from '../core/index.ts'
-import {
-	findTagForVersion,
-	getAllTags,
-	getCurrentBranch,
-	getGitRoot,
-	getLatestTag,
-	getLatestTagForPackage,
-	isWorkingTreeClean,
-} from '../utils/git.ts'
-import { getNpmPublishedVersion } from '../utils/npm.ts'
+import { getCurrentBranch, getGitRoot, isWorkingTreeClean } from '../utils/git.ts'
 
 export interface StatusOptions {
 	cwd?: string
@@ -48,29 +39,11 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 		// Monorepo mode - show per-package status
 		console.log(`${pc.bold('Package Status:')}\n`)
 
-		const contexts: MonorepoBumpContext[] = []
+		// Use shared function to get release info for all packages
+		const packageInfos = await getPackageReleaseInfos(packages)
 		let totalCommits = 0
 
-		// Pre-fetch all tags once
-		const allTags = await getAllTags()
-
-		for (const pkg of packages) {
-			// Query npm for the latest published version (source of truth)
-			const npmVersion = await getNpmPublishedVersion(pkg.name)
-
-			// Find the git tag corresponding to that npm version
-			let baselineTag: string | null = null
-			if (npmVersion) {
-				baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
-			}
-
-			// Fall back to latest git tag if npm version not found or tag missing
-			if (!baselineTag) {
-				baselineTag = await getLatestTagForPackage(pkg.name, allTags)
-			}
-
-			const commits = await getConventionalCommits(baselineTag ?? undefined)
-
+		for (const { pkg, npmVersion, baselineTag, commits } of packageInfos) {
 			console.log(`  ${pc.cyan(pkg.name)}`)
 			const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'none')
 			console.log(
@@ -80,13 +53,6 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log(`    ${pc.dim('Commits:')} ${pc.bold(commits.length)}`)
 
 			if (commits.length > 0) {
-				// Use npm version as baseline for calculation (same as pr.ts)
-				const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
-				contexts.push({
-					package: pkgWithNpmVersion,
-					commits,
-					latestTag: baselineTag,
-				})
 				totalCommits += commits.length
 
 				// Show commit types
@@ -105,7 +71,8 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log()
 		}
 
-		if (contexts.length === 0) {
+		const packagesWithCommits = packageInfos.filter((p) => p.commits.length > 0)
+		if (packagesWithCommits.length === 0) {
 			consola.info('No unreleased commits in any package')
 			return
 		}
@@ -113,7 +80,8 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 		console.log(`  ${pc.dim('Total unreleased commits:')} ${pc.bold(totalCommits)}`)
 		console.log()
 
-		const bumps = calculateMonorepoBumps(contexts, config, { gitRoot })
+		// Use shared function to calculate bumps
+		const { bumps } = calculateBumpsFromInfos(packageInfos, config, gitRoot)
 		if (bumps.length > 0) {
 			console.log(`${pc.bold('Planned version bumps:')}\n`)
 			for (const bump of bumps) {
@@ -132,20 +100,9 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			return
 		}
 
-		// Query npm for the latest published version (source of truth)
-		const npmVersion = await getNpmPublishedVersion(pkg.name)
-		const allTags = await getAllTags()
-
-		// Find the git tag corresponding to that npm version
-		let baselineTag: string | null = null
-		if (npmVersion) {
-			baselineTag = findTagForVersion(npmVersion, allTags)
-		}
-
-		// Fall back to latest git tag if npm version not found or tag missing
-		if (!baselineTag) {
-			baselineTag = await getLatestTag()
-		}
+		// Use shared function to get release info
+		const info = await getSinglePackageReleaseInfo(pkg)
+		const { npmVersion, baselineTag, commits } = info
 
 		const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'none')
 		console.log(
@@ -153,8 +110,6 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 		)
 		console.log(`  ${pc.dim('Baseline:')} ${baseline}`)
 		console.log()
-
-		const commits = await getConventionalCommits(baselineTag ?? undefined)
 
 		if (commits.length === 0) {
 			consola.info('No unreleased commits')
@@ -178,9 +133,8 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log()
 		}
 
-		// Use npm version as baseline for calculation (same as pr.ts)
-		const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
-		const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
+		// Use shared function to calculate bump
+		const bump = calculateSingleBumpFromInfo(info, config)
 		if (bump) {
 			console.log(`${pc.bold('Planned version bump:')}\n`)
 			console.log(
