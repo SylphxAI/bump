@@ -524,6 +524,14 @@ async function runPublishFromReleaseCommit(
 	}
 
 	for (const pkg of packagesToPublish) {
+		// Check if this exact version is already published
+		const npmVersion = await getNpmPublishedVersion(pkg.name)
+		if (npmVersion === pkg.version) {
+			consola.info(`  ${pc.cyan(pkg.name)}@${pc.green(pkg.version)} already published, skipping`)
+			publishedPackages.push(pkg) // Still count as published for tags
+			continue
+		}
+
 		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
 		const publishResult = await $({ cwd: pkg.path })`npm publish --access public`.nothrow()
 
