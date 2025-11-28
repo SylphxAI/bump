@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import consola from 'consola'
 import { $ } from 'zx'
@@ -458,10 +458,11 @@ async function runPublishFromReleaseCommit(
 	} else {
 		// Single package
 		const pkg = await getSinglePackage(cwd)
-		if (pkg && releaseVersions.has(pkg.name)) {
+		const version = pkg ? releaseVersions.get(pkg.name) : undefined
+		if (pkg && version) {
 			packagesToPublish.push({
 				name: pkg.name,
-				version: releaseVersions.get(pkg.name)!,
+				version,
 				path: cwd,
 			})
 		}

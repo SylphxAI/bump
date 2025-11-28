@@ -34,7 +34,9 @@ describe('npm utils', () => {
 		})
 
 		it('should return empty array for non-existent package', async () => {
-			const versions = await getNpmPublishedVersions('this-package-definitely-does-not-exist-xyz-123')
+			const versions = await getNpmPublishedVersions(
+				'this-package-definitely-does-not-exist-xyz-123'
+			)
 			expect(versions).toEqual([])
 		})
 

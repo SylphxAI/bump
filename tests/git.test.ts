@@ -1,28 +1,22 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, rmSync } from 'node:fs'
 import {
 	clearTagCache,
 	findTagForVersion,
-	getTagsForPackage,
-	parseGitHubRepo,
-	parseVersionFromPackageTag,
+	getAllTags,
+	getCommitFiles,
+	getCommitForTag,
+	getCommitsSince,
+	getCurrentBranch,
+	getGitHubRepoUrl,
 	getGitRoot,
 	getLatestTag,
-	getAllTags,
 	getLatestTagForPackage,
-	getCurrentBranch,
-	isWorkingTreeClean,
 	getRemoteUrl,
-	getGitHubRepoUrl,
-	getCommitFiles,
-	getCommitsSince,
-	getCommitForTag,
-	createTag,
-	pushTags,
-	stageFiles,
-	commit,
-	push,
+	getTagsForPackage,
+	isWorkingTreeClean,
+	parseGitHubRepo,
+	parseVersionFromPackageTag,
 } from '../src/utils/git.ts'
 
 const TEST_DIR = '/tmp/bump-git-test'
@@ -84,12 +78,7 @@ describe('git utils', () => {
 
 	describe('getTagsForPackage', () => {
 		it('should filter tags for specific package', () => {
-			const allTags = [
-				'@scope/pkg-a@1.0.0',
-				'@scope/pkg-a@1.1.0',
-				'@scope/pkg-b@1.0.0',
-				'v1.0.0',
-			]
+			const allTags = ['@scope/pkg-a@1.0.0', '@scope/pkg-a@1.1.0', '@scope/pkg-b@1.0.0', 'v1.0.0']
 
 			const result = getTagsForPackage('@scope/pkg-a', allTags)
 

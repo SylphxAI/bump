@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { loadConfig, getDefaultConfig, defineConfig } from '../src/core/config.ts'
+import { defineConfig, getDefaultConfig, loadConfig } from '../src/core/config.ts'
 
 const TEST_DIR = '/tmp/bump-config-test'
 
@@ -68,10 +68,7 @@ describe('config', () => {
 		})
 
 		it('should load .bumprc file', async () => {
-			writeFileSync(
-				join(TEST_DIR, '.bumprc'),
-				JSON.stringify({ prerelease: 'alpha' })
-			)
+			writeFileSync(join(TEST_DIR, '.bumprc'), JSON.stringify({ prerelease: 'alpha' }))
 
 			const config = await loadConfig(TEST_DIR)
 
@@ -79,10 +76,7 @@ describe('config', () => {
 		})
 
 		it('should load .bumprc.json file', async () => {
-			writeFileSync(
-				join(TEST_DIR, '.bumprc.json'),
-				JSON.stringify({ prerelease: 'beta' })
-			)
+			writeFileSync(join(TEST_DIR, '.bumprc.json'), JSON.stringify({ prerelease: 'beta' }))
 
 			const config = await loadConfig(TEST_DIR)
 
@@ -100,14 +94,8 @@ describe('config', () => {
 
 		it('should prefer earlier config files in priority order', async () => {
 			// bump.config.json should take priority over .bumprc
-			writeFileSync(
-				join(TEST_DIR, 'bump.config.json'),
-				JSON.stringify({ baseBranch: 'from-json' })
-			)
-			writeFileSync(
-				join(TEST_DIR, '.bumprc'),
-				JSON.stringify({ baseBranch: 'from-bumprc' })
-			)
+			writeFileSync(join(TEST_DIR, 'bump.config.json'), JSON.stringify({ baseBranch: 'from-json' }))
+			writeFileSync(join(TEST_DIR, '.bumprc'), JSON.stringify({ baseBranch: 'from-bumprc' }))
 
 			const config = await loadConfig(TEST_DIR)
 

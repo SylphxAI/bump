@@ -1,12 +1,12 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-	readPackageJson,
-	writePackageJson,
 	fileExists,
 	readFile,
+	readPackageJson,
 	writeFile,
+	writePackageJson,
 } from '../src/utils/fs.ts'
 
 const TEST_DIR = '/tmp/bump-fs-test'

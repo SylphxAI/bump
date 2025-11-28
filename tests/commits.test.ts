@@ -3,10 +3,10 @@ import {
 	determineReleaseType,
 	fileMatchesPackage,
 	filterCommitsForPackage,
-	groupCommitsByType,
-	groupCommitsByScope,
-	parseConventionalCommit,
 	getConventionalCommits,
+	groupCommitsByScope,
+	groupCommitsByType,
+	parseConventionalCommit,
 } from '../src/core/commits.ts'
 import type { BumpConfig, ConventionalCommit } from '../src/types.ts'
 

@@ -1,10 +1,10 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
 	generateChangelogEntry,
-	updateChangelog,
 	generateFullChangelog,
+	updateChangelog,
 } from '../src/core/changelog.ts'
 import type { BumpConfig, ConventionalCommit, VersionBump } from '../src/types.ts'
 
@@ -25,9 +25,7 @@ describe('changelog', () => {
 			changelog: { groupBy: 'type' },
 		}
 
-		const createCommit = (
-			overrides: Partial<ConventionalCommit> = {}
-		): ConventionalCommit => ({
+		const createCommit = (overrides: Partial<ConventionalCommit> = {}): ConventionalCommit => ({
 			hash: 'abc1234567890',
 			type: 'feat',
 			subject: 'add new feature',
@@ -219,9 +217,7 @@ describe('changelog', () => {
 				currentVersion: '1.0.0',
 				newVersion: '1.1.0',
 				releaseType: 'minor',
-				commits: [
-					createCommit({ hash: '111', type: 'feat', scope: 'auth', subject: 'add login' }),
-				],
+				commits: [createCommit({ hash: '111', type: 'feat', scope: 'auth', subject: 'add login' })],
 			}
 
 			const entry = generateChangelogEntry(bump, defaultConfig)
@@ -230,7 +226,19 @@ describe('changelog', () => {
 		})
 
 		it('should handle all commit types', () => {
-			const types = ['feat', 'fix', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert']
+			const types = [
+				'feat',
+				'fix',
+				'docs',
+				'style',
+				'refactor',
+				'perf',
+				'test',
+				'build',
+				'ci',
+				'chore',
+				'revert',
+			]
 			const commits = types.map((type, i) =>
 				createCommit({ hash: `${i}00`, type, subject: `${type} change` })
 			)

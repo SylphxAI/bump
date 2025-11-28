@@ -1,17 +1,17 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-	isWorkspaceDep,
-	resolveWorkspaceDep,
-	getSinglePackage,
-	updatePackageVersion,
-	isMonorepo,
-	findDependentPackages,
 	calculateCascadeBumps,
 	discoverPackages,
+	findDependentPackages,
+	getSinglePackage,
+	isMonorepo,
+	isWorkspaceDep,
 	resolveAllWorkspaceDeps,
+	resolveWorkspaceDep,
 	updateDependencyVersions,
+	updatePackageVersion,
 } from '../src/core/packages.ts'
 import type { PackageInfo } from '../src/types.ts'
 
@@ -164,10 +164,7 @@ describe('packages', () => {
 
 	describe('isMonorepo', () => {
 		it('should detect monorepo with workspaces field', () => {
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ workspaces: ['packages/*'] })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }))
 
 			expect(isMonorepo(TEST_DIR)).toBe(true)
 		})
@@ -184,10 +181,7 @@ describe('packages', () => {
 		})
 
 		it('should return false for single package', () => {
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ name: 'single-pkg' })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ name: 'single-pkg' }))
 
 			expect(isMonorepo(TEST_DIR)).toBe(false)
 		})
@@ -244,10 +238,7 @@ describe('packages', () => {
 				},
 			]
 
-			const dependents = findDependentPackages(
-				packages,
-				new Set(['@scope/core', '@scope/utils'])
-			)
+			const dependents = findDependentPackages(packages, new Set(['@scope/core', '@scope/utils']))
 
 			expect(dependents).toEqual([])
 		})
@@ -305,10 +296,7 @@ describe('packages', () => {
 	describe('discoverPackages', () => {
 		it('should discover packages from workspaces field', async () => {
 			// Setup monorepo structure
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ workspaces: ['packages/*'] })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }))
 			mkdirSync(join(TEST_DIR, 'packages', 'foo'), { recursive: true })
 			mkdirSync(join(TEST_DIR, 'packages', 'bar'), { recursive: true })
 			writeFileSync(
@@ -342,10 +330,7 @@ describe('packages', () => {
 		})
 
 		it('should skip directories without package.json', async () => {
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ workspaces: ['packages/*'] })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }))
 			mkdirSync(join(TEST_DIR, 'packages', 'foo'), { recursive: true })
 			mkdirSync(join(TEST_DIR, 'packages', 'bar'), { recursive: true })
 			writeFileSync(
@@ -361,10 +346,7 @@ describe('packages', () => {
 		})
 
 		it('should skip packages without name or version', async () => {
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ workspaces: ['packages/*'] })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ workspaces: ['packages/*'] }))
 			mkdirSync(join(TEST_DIR, 'packages', 'foo'), { recursive: true })
 			mkdirSync(join(TEST_DIR, 'packages', 'bar'), { recursive: true })
 			writeFileSync(
@@ -422,10 +404,7 @@ describe('packages', () => {
 
 		it('should update dependencies in subpackages', () => {
 			// Setup root
-			writeFileSync(
-				join(TEST_DIR, 'package.json'),
-				JSON.stringify({ name: 'root' })
-			)
+			writeFileSync(join(TEST_DIR, 'package.json'), JSON.stringify({ name: 'root' }))
 
 			// Setup subpackage
 			mkdirSync(join(TEST_DIR, 'packages', 'bar'), { recursive: true })
@@ -439,7 +418,12 @@ describe('packages', () => {
 			)
 
 			const packages: PackageInfo[] = [
-				{ name: '@scope/bar', version: '1.0.0', path: join(TEST_DIR, 'packages', 'bar'), private: false },
+				{
+					name: '@scope/bar',
+					version: '1.0.0',
+					path: join(TEST_DIR, 'packages', 'bar'),
+					private: false,
+				},
 			]
 
 			updateDependencyVersions(TEST_DIR, packages, new Map([['@scope/foo', '2.0.0']]))
@@ -494,8 +478,18 @@ describe('packages', () => {
 			)
 
 			const packages: PackageInfo[] = [
-				{ name: '@scope/foo', version: '2.0.0', path: join(TEST_DIR, 'packages', 'foo'), private: false },
-				{ name: '@scope/bar', version: '1.0.0', path: join(TEST_DIR, 'packages', 'bar'), private: false },
+				{
+					name: '@scope/foo',
+					version: '2.0.0',
+					path: join(TEST_DIR, 'packages', 'foo'),
+					private: false,
+				},
+				{
+					name: '@scope/bar',
+					version: '1.0.0',
+					path: join(TEST_DIR, 'packages', 'bar'),
+					private: false,
+				},
 			]
 
 			resolveAllWorkspaceDeps(TEST_DIR, packages)

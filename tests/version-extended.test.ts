@@ -2,8 +2,8 @@ import { describe, expect, it } from 'bun:test'
 import {
 	adjustReleaseTypeForZeroVersion,
 	calculateBumps,
-	calculateSingleBump,
 	calculateMonorepoBumps,
+	calculateSingleBump,
 	incrementVersion,
 } from '../src/core/version.ts'
 import type { BumpConfig, ConventionalCommit, PackageInfo } from '../src/types.ts'
@@ -19,9 +19,7 @@ describe('version (extended)', () => {
 		},
 	}
 
-	const createCommit = (
-		overrides: Partial<ConventionalCommit> = {}
-	): ConventionalCommit => ({
+	const createCommit = (overrides: Partial<ConventionalCommit> = {}): ConventionalCommit => ({
 		hash: 'abc123',
 		type: 'feat',
 		subject: 'test',
@@ -155,9 +153,7 @@ describe('version (extended)', () => {
 				{ name: '@scope/foo', version: '1.0.0', path: '/foo', private: false },
 				{ name: '@scope/bar', version: '2.0.0', path: '/bar', private: false },
 			]
-			const commits = [
-				createCommit({ type: 'feat', files: ['/foo/src/index.ts'] }),
-			]
+			const commits = [createCommit({ type: 'feat', files: ['/foo/src/index.ts'] })]
 
 			const bumps = calculateBumps(packages, commits, defaultConfig, { gitRoot: '' })
 
@@ -231,7 +227,12 @@ describe('version (extended)', () => {
 		it('should calculate bumps from per-package contexts', () => {
 			const contexts = [
 				{
-					package: { name: '@scope/foo', version: '1.0.0', path: 'packages/foo', private: false } as PackageInfo,
+					package: {
+						name: '@scope/foo',
+						version: '1.0.0',
+						path: 'packages/foo',
+						private: false,
+					} as PackageInfo,
 					commits: [createCommit({ type: 'feat', files: ['packages/foo/src/index.ts'] })],
 					latestTag: '@scope/foo@1.0.0',
 				},
@@ -247,7 +248,12 @@ describe('version (extended)', () => {
 		it('should skip private packages', () => {
 			const contexts = [
 				{
-					package: { name: '@scope/foo', version: '1.0.0', path: '/foo', private: true } as PackageInfo,
+					package: {
+						name: '@scope/foo',
+						version: '1.0.0',
+						path: '/foo',
+						private: true,
+					} as PackageInfo,
 					commits: [createCommit({ type: 'feat' })],
 					latestTag: null,
 				},
@@ -261,13 +267,22 @@ describe('version (extended)', () => {
 		it('should handle prerelease from config', () => {
 			const contexts = [
 				{
-					package: { name: '@scope/foo', version: '1.0.0', path: 'packages/foo', private: false } as PackageInfo,
+					package: {
+						name: '@scope/foo',
+						version: '1.0.0',
+						path: 'packages/foo',
+						private: false,
+					} as PackageInfo,
 					commits: [createCommit({ type: 'feat', files: ['packages/foo/src/index.ts'] })],
 					latestTag: null,
 				},
 			]
 
-			const bumps = calculateMonorepoBumps(contexts, { ...defaultConfig, prerelease: 'alpha' }, { gitRoot: '' })
+			const bumps = calculateMonorepoBumps(
+				contexts,
+				{ ...defaultConfig, prerelease: 'alpha' },
+				{ gitRoot: '' }
+			)
 
 			expect(bumps[0]?.newVersion).toBe('1.1.0-alpha.0')
 		})
@@ -275,13 +290,22 @@ describe('version (extended)', () => {
 		it('should graduate from 0.x to 1.0.0', () => {
 			const contexts = [
 				{
-					package: { name: '@scope/foo', version: '0.9.0', path: 'packages/foo', private: false } as PackageInfo,
+					package: {
+						name: '@scope/foo',
+						version: '0.9.0',
+						path: 'packages/foo',
+						private: false,
+					} as PackageInfo,
 					commits: [createCommit({ type: 'feat', files: ['packages/foo/src/index.ts'] })],
 					latestTag: null,
 				},
 			]
 
-			const bumps = calculateMonorepoBumps(contexts, { ...defaultConfig, graduate: true }, { gitRoot: '' })
+			const bumps = calculateMonorepoBumps(
+				contexts,
+				{ ...defaultConfig, graduate: true },
+				{ gitRoot: '' }
+			)
 
 			expect(bumps[0]?.newVersion).toBe('1.0.0')
 			expect(bumps[0]?.releaseType).toBe('major')
@@ -290,7 +314,12 @@ describe('version (extended)', () => {
 		it('should not create bump when no release-triggering commits', () => {
 			const contexts = [
 				{
-					package: { name: '@scope/foo', version: '1.0.0', path: 'packages/foo', private: false } as PackageInfo,
+					package: {
+						name: '@scope/foo',
+						version: '1.0.0',
+						path: 'packages/foo',
+						private: false,
+					} as PackageInfo,
 					commits: [createCommit({ type: 'docs', files: ['packages/foo/README.md'] })],
 					latestTag: null,
 				},

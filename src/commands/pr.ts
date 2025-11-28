@@ -46,7 +46,8 @@ const PR_TITLE_PREFIX = 'chore(release):'
 function generatePrBody(
 	bumps: VersionBump[],
 	config: ReturnType<typeof import('../core/config.ts').getDefaultConfig>,
-	repoUrl?: string
+	repoUrl?: string,
+	headCommit?: string
 ): string {
 	const lines: string[] = []
 
@@ -84,6 +85,13 @@ function generatePrBody(
 	lines.push(`- **Total commits:** ${totalCommits}`)
 	if (breakingChanges > 0) {
 		lines.push(`- **Breaking changes:** ${breakingChanges} ⚠️`)
+	}
+	if (headCommit) {
+		const shortHash = headCommit.slice(0, 7)
+		const commitLink = repoUrl
+			? `[\`${shortHash}\`](${repoUrl}/commit/${headCommit})`
+			: `\`${shortHash}\``
+		lines.push(`- **Based on:** ${commitLink}`)
 	}
 	lines.push('')
 	lines.push('</details>')
@@ -337,6 +345,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 	// Generate PR content
 	const repoUrl = await getGitHubRepoUrl()
+	const headCommit = (await $`git rev-parse HEAD`.quiet()).stdout.trim()
 
 	// Generate descriptive PR title
 	let prTitle: string
@@ -352,7 +361,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 		}
 	}
 
-	const prBody = generatePrBody(bumps, config, repoUrl ?? undefined)
+	const prBody = generatePrBody(bumps, config, repoUrl ?? undefined, headCommit)
 
 	consola.box(
 		bumps
