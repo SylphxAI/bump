@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.4 (2025-11-28)
+
+### 🐛 Bug Fixes
+
+- **publish:** skip already published package versions ([aacbc81](https://github.com/SylphxAI/bump/commit/aacbc81e62a963b9354b44f1f445ae61627f71c0))
+
 ## 1.3.3 (2025-11-28)
 
 ### 🐛 Bug Fixes
