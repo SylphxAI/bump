@@ -58,34 +58,6 @@ async function isReleaseCommit(): Promise<boolean> {
 }
 
 /**
- * Parse package versions from existing release commit message
- * Returns map of package name -> version
- *
- * Supported formats:
- * - Single: "chore(release): @scope/pkg@1.0.0"
- * - Comma-separated: "chore(release): @scope/pkg1@1.0.0, @scope/pkg2@2.0.0"
- * - Bullet list: "chore(release): 2 packages\n\n- @scope/pkg1@1.0.0\n- @scope/pkg2@2.0.0"
- */
-function parseReleaseCommitVersions(message: string): Map<string, string> {
-	const versions = new Map<string, string>()
-
-	// Try to match all @package@version patterns in the first line
-	const firstLine = message.split('\n')[0]
-	const inlineMatches = firstLine.matchAll(/(@?[\w@\/-]+)@(\d+\.\d+\.\d+)/g)
-	for (const match of inlineMatches) {
-		versions.set(match[1], match[2])
-	}
-
-	// Also check for bullet list format in the body
-	const bulletMatches = message.matchAll(/^- (@?[\w@\/-]+)@(\d+\.\d+\.\d+)/gm)
-	for (const match of bulletMatches) {
-		versions.set(match[1], match[2])
-	}
-
-	return versions
-}
-
-/**
  * Publish packages - recalculates bumps fresh from npm baseline
  * This runs after PR merge - calculates version changes, publishes, then commits
  */
@@ -426,7 +398,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 /**
  * Publish from an existing release commit (PR was already merged)
- * Skips version bumping and commit - just publishes, tags, and releases
+ * Compares package.json versions with npm - publishes any that are newer
  */
 async function runPublishFromReleaseCommit(
 	cwd: string,
@@ -434,46 +406,35 @@ async function runPublishFromReleaseCommit(
 ): Promise<PublishResult> {
 	consola.start('Publishing from release commit...')
 
-	// Get the commit message to parse versions
-	const commitResult = await $`git log -1 --format=%B`
-	const commitMsg = commitResult.stdout.trim()
-	const releaseVersions = parseReleaseCommitVersions(commitMsg)
-
-	if (releaseVersions.size === 0) {
-		consola.warn('Could not parse versions from release commit')
-		return { published: false, packages: [] }
-	}
-
 	// Load config and packages
 	const config = await loadConfig(cwd)
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
-	// Build list of packages to publish from the commit message
+	// Build list of packages to publish by comparing local vs npm versions
 	const packagesToPublish: Array<{ name: string; version: string; path: string }> = []
 
 	if (packages.length > 0) {
-		// Monorepo: match packages from commit message
-		for (const [name, version] of releaseVersions) {
-			const pkg = packages.find((p) => p.name === name)
-			if (pkg) {
-				packagesToPublish.push({ name, version, path: pkg.path })
+		// Monorepo: check each package
+		for (const pkg of packages) {
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+			// Publish if: not on npm yet, or local version is newer
+			if (!npmVersion || pkg.version !== npmVersion) {
+				packagesToPublish.push({ name: pkg.name, version: pkg.version, path: pkg.path })
 			}
 		}
 	} else {
 		// Single package
-		const pkg = await getSinglePackage(cwd)
-		const version = pkg ? releaseVersions.get(pkg.name) : undefined
-		if (pkg && version) {
-			packagesToPublish.push({
-				name: pkg.name,
-				version,
-				path: cwd,
-			})
+		const pkg = getSinglePackage(cwd)
+		if (pkg) {
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+			if (!npmVersion || pkg.version !== npmVersion) {
+				packagesToPublish.push({ name: pkg.name, version: pkg.version, path: cwd })
+			}
 		}
 	}
 
 	if (packagesToPublish.length === 0) {
-		consola.warn('No packages found to publish')
+		consola.info('All packages are already published')
 		return { published: false, packages: [] }
 	}
 
@@ -524,14 +485,6 @@ async function runPublishFromReleaseCommit(
 	}
 
 	for (const pkg of packagesToPublish) {
-		// Check if this exact version is already published
-		const npmVersion = await getNpmPublishedVersion(pkg.name)
-		if (npmVersion === pkg.version) {
-			consola.info(`  ${pc.cyan(pkg.name)}@${pc.green(pkg.version)} already published, skipping`)
-			publishedPackages.push(pkg) // Still count as published for tags
-			continue
-		}
-
 		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
 		const publishResult = await $({ cwd: pkg.path })`npm publish --access public`.nothrow()
 
