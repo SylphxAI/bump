@@ -101,7 +101,7 @@ export function calculateBumpsFromInfos(
 				package: pkg.name,
 				currentVersion: pkg.version,
 				newVersion: pkg.version,
-				releaseType: 'patch', // Initial release marker
+				releaseType: 'initial',
 				commits,
 			})
 		} else {

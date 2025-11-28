@@ -7,14 +7,14 @@ import { $ } from 'zx'
 $.quiet = true
 import pc from 'picocolors'
 import {
-	type MonorepoBumpContext,
+	calculateBumpsFromInfos,
 	calculateCascadeBumps,
-	calculateMonorepoBumps,
-	calculateSingleBump,
+	calculateSingleBumpFromInfo,
 	discoverPackages,
 	generateChangelogEntry,
-	getConventionalCommits,
+	getPackageReleaseInfos,
 	getSinglePackage,
+	getSinglePackageReleaseInfo,
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
@@ -25,14 +25,7 @@ import {
 	updatePackageVersion,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
-import {
-	findTagForVersion,
-	getAllTags,
-	getGitHubRepoUrl,
-	getGitRoot,
-	getLatestTag,
-	getLatestTagForPackage,
-} from '../utils/git.ts'
+import { getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
 import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
 
@@ -77,69 +70,29 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	const [config, gitRoot] = await Promise.all([loadConfig(cwd), getGitRoot()])
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
-	// Calculate bumps fresh (same logic as pr.ts)
+	// Calculate bumps using shared functions
 	let bumps: VersionBump[] = []
 
 	if (packages.length > 0) {
-		// Pre-fetch all tags once for reuse
-		const allTags = await getAllTags()
-
-		// Process all packages in parallel - use npm published version as baseline
-		const packageResults = await Promise.all(
-			packages.map(async (pkg) => {
-				// Query npm for the latest published version (source of truth)
-				const npmVersion = await getNpmPublishedVersion(pkg.name)
-
-				// Find the git tag corresponding to that npm version
-				let baselineTag: string | null = null
-				if (npmVersion) {
-					baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
-				}
-
-				// Fall back to latest git tag if npm version not found or tag missing
-				if (!baselineTag) {
-					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
-				}
-
-				const commits = await getConventionalCommits(baselineTag ?? undefined)
-				return { pkg, baselineTag, npmVersion, commits }
-			})
+		// Use shared functions for monorepo release calculation
+		const packageInfos = await getPackageReleaseInfos(packages)
+		const { bumps: calculatedBumps, firstReleases } = calculateBumpsFromInfos(
+			packageInfos,
+			config,
+			gitRoot
 		)
 
-		// Build contexts from parallel results, handling first releases
-		const contexts: MonorepoBumpContext[] = []
-		const firstReleases: VersionBump[] = []
-
-		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
-			if (commits.length === 0) continue
-
-			// First release: use package.json version directly
-			if (!npmVersion) {
-				consola.info(`First release: ${pkg.name}@${pkg.version}`)
-				firstReleases.push({
-					package: pkg.name,
-					currentVersion: pkg.version,
-					newVersion: pkg.version,
-					releaseType: 'patch', // Initial release marker
-					commits,
-				})
-			} else {
-				// Already published: calculate bump from npm version
-				contexts.push({
-					package: pkg,
-					commits,
-					latestTag: baselineTag,
-				})
-			}
+		// Log first releases
+		for (const release of firstReleases) {
+			consola.info(`First release: ${release.package}@${release.newVersion}`)
 		}
 
-		if (contexts.length === 0 && firstReleases.length === 0) {
+		if (calculatedBumps.length === 0) {
 			consola.info('No new commits since last releases - nothing to publish')
 			return { published: false, packages: [] }
 		}
 
-		// Combine first releases with calculated bumps
-		bumps = [...firstReleases, ...calculateMonorepoBumps(contexts, config, { gitRoot })]
+		bumps = calculatedBumps
 
 		// Cascade bump: find packages that depend on bumped packages
 		if (bumps.length > 0) {
@@ -156,7 +109,13 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 					}
 				}
 
-				const newVersion = incrementVersion(pkg.version, 'patch')
+				let newVersion: string
+				try {
+					newVersion = incrementVersion(pkg.version, 'patch')
+				} catch (error) {
+					consola.error(`Invalid version in cascade package ${pkg.name}: ${pkg.version}`)
+					throw error
+				}
 				bumps.push({
 					package: pkg.name,
 					currentVersion: pkg.version,
@@ -168,52 +127,34 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 			}
 		}
 	} else {
-		// Single package mode - use npm published version as baseline
+		// Single package mode - use shared function
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
 			return { published: false, packages: [] }
 		}
 
-		// Query npm for the latest published version (source of truth)
-		const npmVersion = await getNpmPublishedVersion(pkg.name)
-		const allTags = await getAllTags()
+		const info = await getSinglePackageReleaseInfo(pkg)
 
-		// Find the git tag corresponding to that npm version
-		let baselineTag: string | null = null
-		if (npmVersion) {
-			baselineTag = findTagForVersion(npmVersion, allTags)
-		}
-
-		// Fall back to latest git tag if npm version not found or tag missing
-		if (!baselineTag) {
-			baselineTag = await getLatestTag()
-		}
-
-		const commits = await getConventionalCommits(baselineTag ?? undefined)
-
-		if (commits.length === 0) {
+		if (info.commits.length === 0) {
 			consola.info('No new commits since last release - nothing to publish')
 			return { published: false, packages: [] }
 		}
 
-		// First release: use package.json version directly (developer's intent)
-		// Already published: use npm version as baseline (source of truth)
-		if (!npmVersion) {
+		// First release: log and use package.json version
+		if (!info.npmVersion) {
 			consola.info(`First release: ${pkg.name}@${pkg.version}`)
 			bumps = [
 				{
 					package: pkg.name,
 					currentVersion: pkg.version,
 					newVersion: pkg.version,
-					releaseType: 'patch', // Initial release marker
-					commits,
+					releaseType: 'initial',
+					commits: info.commits,
 				},
 			]
 		} else {
-			// Use npm version as current version (source of truth)
-			const pkgWithNpmVersion = { ...pkg, version: npmVersion }
-			const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
+			const bump = calculateSingleBumpFromInfo(info, config)
 			if (bump) bumps = [bump]
 		}
 	}

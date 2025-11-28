@@ -111,6 +111,7 @@ export function determineReleaseType(
 		preminor: 2,
 		prepatch: 1,
 		prerelease: 0,
+		initial: 0,
 	}
 
 	for (const commit of commits) {

@@ -164,6 +164,16 @@ const bump = defineCommand({
 		}
 
 		// Resolve preid from shorthand flags
+		const prereleaseFlags = [args.alpha, args.beta, args.rc].filter(Boolean).length
+		if (prereleaseFlags > 1) {
+			consola.error('Cannot specify multiple pre-release flags (--alpha, --beta, --rc)')
+			process.exit(1)
+		}
+		if (prereleaseFlags > 0 && args.preid) {
+			consola.error('Cannot use both --preid and pre-release shorthand flags')
+			process.exit(1)
+		}
+
 		let preid = args.preid as string | undefined
 		if (args.alpha) preid = 'alpha'
 		if (args.beta) preid = 'beta'

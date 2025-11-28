@@ -6,6 +6,7 @@ export type ReleaseType =
 	| 'preminor'
 	| 'prepatch'
 	| 'prerelease'
+	| 'initial'
 
 export type VersionStrategy = 'independent' | 'fixed' | 'synced'
 

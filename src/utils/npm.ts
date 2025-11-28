@@ -11,8 +11,8 @@ export async function getNpmPublishedVersion(packageName: string): Promise<strin
 	try {
 		const result = await $`npm view ${packageName} version`
 		const version = result.stdout.trim()
-		// Validate it looks like a version
-		if (/^\d+\.\d+\.\d+/.test(version)) {
+		// Validate it's a valid semver (with optional pre-release and build metadata)
+		if (/^\d+\.\d+\.\d+(-[\w.-]+)?(\+[\w.-]+)?$/.test(version)) {
 			return version
 		}
 		return null
