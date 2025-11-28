@@ -1,5 +1,15 @@
 # @sylphx/bump
 
+## 1.3.0 (2025-11-28)
+
+### ✨ Features
+
+- **pr:** add squash merge reminder in PR body ([0e1d06a](https://github.com/SylphxAI/bump/commit/0e1d06a7f79d49dabf43826949cb242d268b74f1))
+
+### 🐛 Bug Fixes
+
+- **action:** require Merge prefix for bump/release detection ([839ac42](https://github.com/SylphxAI/bump/commit/839ac42a477ab05f8beb5589cab620c7c1f21f38))
+
 ## 1.2.1 (2025-11-28)
 
 ### 🐛 Bug Fixes
