@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.2.0 (2025-11-28)
+
+### ✨ Features
+
+- **pr:** show base commit in PR statistics ([4b2800c](https://github.com/SylphxAI/bump/commit/4b2800c8cf93bf470ca91bb32f551d00914200a8))
+
 ## 1.1.2 (2025-11-27)
 
 ### ♻️ Refactoring
