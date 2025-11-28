@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.3 (2025-11-28)
+
+### 🐛 Bug Fixes
+
+- **publish:** parse comma-separated packages in release commit ([afd7f6d](https://github.com/SylphxAI/bump/commit/afd7f6d95a64378eaf32a4bd27ae1a2068155458))
+
 ## 1.3.2 (2025-11-28)
 
 ### 🐛 Bug Fixes
