@@ -88,14 +88,16 @@ runs:
         git config user.email "github-actions[bot]@users.noreply.github.com" 2>/dev/null || true
 
         # Determine mode
-        # - If latest commit is from release PR merge (chore(release): prefix) → publish mode
+        # - If latest commit is from release PR merge → publish mode
         # - Otherwise → pr mode (create/update release PR)
         MODE="${{ inputs.mode }}"
         if [ "$MODE" = "auto" ]; then
-          # Check if latest commit message starts with "chore(release):"
-          # This indicates a release PR was just merged
           LATEST_COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
-          if [[ "$LATEST_COMMIT_MSG" == chore\(release\):* ]]; then
+
+          # Check for squash merge: commit message starts with "chore(release):"
+          # Check for merge commit: "Merge pull request #X from .../bump/release" or "Merge branch 'bump/release'"
+          if [[ "$LATEST_COMMIT_MSG" == chore\(release\):* ]] || \
+             [[ "$LATEST_COMMIT_MSG" == *"bump/release"* ]]; then
             MODE="publish"
             echo "Detected release PR merge - switching to publish mode"
           else
