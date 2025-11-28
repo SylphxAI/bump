@@ -80,8 +80,10 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log(`    ${pc.dim('Commits:')} ${pc.bold(commits.length)}`)
 
 			if (commits.length > 0) {
+				// Use npm version as baseline for calculation (same as pr.ts)
+				const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
 				contexts.push({
-					package: pkg,
+					package: pkgWithNpmVersion,
 					commits,
 					latestTag: baselineTag,
 				})
@@ -176,7 +178,9 @@ export async function runStatus(options: StatusOptions = {}): Promise<void> {
 			console.log()
 		}
 
-		const bump = calculateSingleBump(pkg, commits, config)
+		// Use npm version as baseline for calculation (same as pr.ts)
+		const pkgWithNpmVersion = npmVersion ? { ...pkg, version: npmVersion } : pkg
+		const bump = calculateSingleBump(pkgWithNpmVersion, commits, config)
 		if (bump) {
 			console.log(`${pc.bold('Planned version bump:')}\n`)
 			console.log(
