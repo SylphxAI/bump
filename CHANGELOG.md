@@ -1,5 +1,15 @@
 # @sylphx/bump
 
+## 1.3.2 (2025-11-28)
+
+### 🐛 Bug Fixes
+
+- **pr:** use npm version as baseline for monorepo bump calculation ([c82a253](https://github.com/SylphxAI/bump/commit/c82a25335f80f194b92f54197412534e8154d587))
+
+### ♻️ Refactoring
+
+- **release:** extract shared release calculation logic ([d75e80c](https://github.com/SylphxAI/bump/commit/d75e80c882db7b88c3018a28e26f29cbe5d6d604))
+
 ## 1.3.1 (2025-11-28)
 
 ### 🐛 Bug Fixes
