@@ -44,23 +44,23 @@ const bump = defineCommand({
 		},
 		preid: {
 			type: 'string',
-			description: 'Pre-release identifier (alpha, beta, rc)',
+			description: '[DEPRECATED] Use .bump/*.md with prerelease field instead',
 		},
 		prerelease: {
 			type: 'boolean',
-			description: 'Create a pre-release version',
+			description: '[DEPRECATED] Use .bump/*.md with prerelease field instead',
 		},
 		alpha: {
 			type: 'boolean',
-			description: 'Create alpha pre-release (shorthand for --preid alpha)',
+			description: '[DEPRECATED] Use .bump/*.md with prerelease: alpha instead',
 		},
 		beta: {
 			type: 'boolean',
-			description: 'Create beta pre-release (shorthand for --preid beta)',
+			description: '[DEPRECATED] Use .bump/*.md with prerelease: beta instead',
 		},
 		rc: {
 			type: 'boolean',
-			description: 'Create release candidate (shorthand for --preid rc)',
+			description: '[DEPRECATED] Use .bump/*.md with prerelease: rc instead',
 		},
 		graduate: {
 			type: 'boolean',
@@ -163,7 +163,7 @@ const bump = defineCommand({
 			consola.level = 4 // debug level
 		}
 
-		// Resolve preid from shorthand flags
+		// Resolve preid from shorthand flags (deprecated)
 		const prereleaseFlags = [args.alpha, args.beta, args.rc].filter(Boolean).length
 		if (prereleaseFlags > 1) {
 			consola.error('Cannot specify multiple pre-release flags (--alpha, --beta, --rc)')
@@ -178,6 +178,12 @@ const bump = defineCommand({
 		if (args.alpha) preid = 'alpha'
 		if (args.beta) preid = 'beta'
 		if (args.rc) preid = 'rc'
+
+		// Show deprecation warning for prerelease CLI flags
+		if (preid || args.prerelease) {
+			consola.warn('Prerelease CLI flags are deprecated.')
+			consola.info('Use bump files instead: .bump/*.md with `prerelease: beta`')
+		}
 
 		try {
 			await runBump({

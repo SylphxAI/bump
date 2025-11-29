@@ -15,7 +15,10 @@ export interface BumpConfig {
 	/** Version strategy for monorepo */
 	versioning?: VersionStrategy
 
-	/** Pre-release identifier (alpha, beta, rc) - set to create pre-release versions */
+	/**
+	 * Pre-release identifier (alpha, beta, rc)
+	 * @deprecated Use bump files instead: .bump/*.md with `prerelease: beta`
+	 */
 	prerelease?: string | false
 
 	/** Graduate from 0.x to 1.0.0 (stable release) */

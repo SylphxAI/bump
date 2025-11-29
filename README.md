@@ -205,15 +205,6 @@ npx bump --dry-run
 # Release
 npx bump
 
-# Pre-release (shorthand)
-npx bump --alpha              # 1.0.0 → 1.1.0-alpha.0
-npx bump --beta               # 1.0.0 → 1.1.0-beta.0
-npx bump --rc                 # 1.0.0 → 1.1.0-rc.0
-
-# Pre-release (explicit)
-npx bump --preid alpha        # 1.0.0 → 1.1.0-alpha.0
-npx bump --prerelease         # 1.0.0-alpha.0 → 1.0.0-alpha.1
-
 # Graduate from 0.x to 1.0.0
 npx bump --graduate           # 0.5.0 → 1.0.0
 
@@ -221,6 +212,8 @@ npx bump --graduate           # 0.5.0 → 1.0.0
 npx bump --verbose            # Show detailed debug output
 npx bump -v --dry-run         # Debug + preview
 ```
+
+For pre-releases, use bump files instead of CLI flags (see [Pre-releases](#pre-releases)).
 
 > **Note**: Replace `npx` with `bunx`, `pnpm dlx`, or `yarn dlx` based on your package manager.
 
@@ -305,32 +298,50 @@ export default defineConfig({
 
 ## Pre-releases
 
-To publish pre-release versions (alpha, beta, rc):
+Use bump files for pre-release versions:
 
-### Option 1: Config-based (recommended)
+```markdown
+# .bump/beta.md
+---
+release: minor
+prerelease: beta
+---
+
+New beta feature.
+```
+
+→ `1.0.0` → `1.1.0-beta.0`
+
+Workflow:
+1. Create `.bump/beta.md` with `prerelease: beta`
+2. Push → PR created for `v1.1.0-beta.0`
+3. Merge → publish beta
+4. For stable release, create `.bump/stable.md` without `prerelease`
+5. Push → PR created for `v1.1.0`
+
+<details>
+<summary>⚠️ Deprecated: Config and CLI flags</summary>
+
+The following methods are deprecated and will show warnings:
 
 ```typescript
-// bump.config.ts
+// bump.config.ts - DEPRECATED
 export default defineConfig({
-  prerelease: 'beta',  // All releases will be beta until removed
+  prerelease: 'beta',  // Use bump files instead
 })
 ```
 
-Workflow:
-1. Add `prerelease: 'beta'` to config
-2. Push commits → PR created for `v1.1.0-beta.0`
-3. Merge → publish beta
-4. Remove `prerelease` from config when ready for stable
-5. Push → PR created for `v1.1.0`
-
-### Option 2: CLI flags
-
 ```bash
-npx bump --preid beta      # 1.0.0 → 1.1.0-beta.0
-npx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
+# CLI flags - DEPRECATED
+npx bump --preid beta      # Use bump files instead
+npx bump --alpha           # Use bump files instead
+npx bump --beta            # Use bump files instead
+npx bump --rc              # Use bump files instead
 ```
 
-## Bump Files (Manual Control)
+</details>
+
+## Bump Files
 
 While bump works automatically from commits, you can use **bump files** for:
 - Custom changelog entries with hand-written release notes
