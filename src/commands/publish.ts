@@ -407,16 +407,15 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
-	// Pre-build all packages BEFORE resolving workspace deps
+	// Pre-build ALL packages BEFORE resolving workspace deps
 	// This ensures builds can use workspace: protocol for local resolution
+	// Must build from root to handle inter-package dependencies correctly
 	consola.start('Building packages...')
-	for (const pkg of packagesToPublish) {
-		const buildResult = await $({ cwd: pkg.path })`npm run build --if-present`.nothrow()
-		if (buildResult.exitCode !== 0) {
-			consola.error(`  Failed to build ${pkg.name}`)
-			consola.error(buildResult.stderr)
-			process.exit(1)
-		}
+	const buildResult = await $({ cwd })`npm run build --if-present`.nothrow()
+	if (buildResult.exitCode !== 0) {
+		consola.error('  Build failed')
+		consola.error(buildResult.stderr)
+		process.exit(1)
 	}
 	consola.info('  All packages built successfully')
 
