@@ -394,8 +394,7 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
-	// Install dependencies FIRST (before resolving workspace deps)
-	// This allows workspace:* to resolve from local packages
+	// Install dependencies (with workspace:* intact)
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
@@ -408,8 +407,21 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
+	// Pre-build all packages BEFORE resolving workspace deps
+	// This ensures builds can use workspace: protocol for local resolution
+	consola.start('Building packages...')
+	for (const pkg of packagesToPublish) {
+		const buildResult = await $({ cwd: pkg.path })`npm run build --if-present`.nothrow()
+		if (buildResult.exitCode !== 0) {
+			consola.error(`  Failed to build ${pkg.name}`)
+			consola.error(buildResult.stderr)
+			process.exit(1)
+		}
+	}
+	consola.info('  All packages built successfully')
+
 	// Resolve workspace deps for publish (temporary)
-	// Must happen AFTER install so workspace:* can resolve locally
+	// Now safe to resolve since all builds are complete
 	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
 	if (packages.length > 0) {
 		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, packages)
@@ -417,7 +429,7 @@ async function runPublishFromReleaseCommit(
 		consola.info('  Resolved workspace dependencies')
 	}
 
-	// Publish
+	// Publish (skip scripts since we already built)
 	consola.start('Publishing to npm...')
 	const publishedPackages: Array<{ name: string; version: string; path: string }> = []
 	let allSuccess = true
@@ -431,7 +443,8 @@ async function runPublishFromReleaseCommit(
 
 	for (const pkg of packagesToPublish) {
 		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
-		const publishResult = await $({ cwd: pkg.path })`npm publish --access public`.nothrow()
+		// Use --ignore-scripts since we already built all packages
+		const publishResult = await $({ cwd: pkg.path })`npm publish --access public --ignore-scripts`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
 			consola.error(`  Failed to publish ${pkg.name}: ${publishResult.stderr}`)
