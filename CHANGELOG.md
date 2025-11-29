@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.6 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **release:** skip private packages in release calculation ([8b43375](https://github.com/SylphxAI/bump/commit/8b43375b5c4452682ed2d35de0eeaf158d3284f2))
+
 ## 1.3.5 (2025-11-28)
 
 ### ♻️ Refactoring
