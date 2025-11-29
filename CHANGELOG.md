@@ -1,5 +1,22 @@
 # @sylphx/bump
 
+## 1.4.0 (2025-11-29)
+
+### ✨ Features
+
+- **cli:** add bump add command and simplify CLI ([4638686](https://github.com/SylphxAI/bump/commit/4638686a9df6b0349ae4659acc7e755bfdb754fc))
+- **bumpfile:** add prerelease support in bump files ([bd41130](https://github.com/SylphxAI/bump/commit/bd41130fe7203662038992789d1a80a5687db652))
+- **bumpfile:** support multiple packages in single bump file ([8dc703b](https://github.com/SylphxAI/bump/commit/8dc703b4e3df09daaab8a370d5d1207954936ca2))
+- **release:** add bump file system and local version as SSOT ([0f9cbaa](https://github.com/SylphxAI/bump/commit/0f9cbaa92b0148e7349842ba957123ffc37ba85a))
+
+### 🐛 Bug Fixes
+
+- **cli:** restore pr/publish commands for CI use ([3165876](https://github.com/SylphxAI/bump/commit/3165876104fa975467024740054110a7279333f7))
+
+### 📚 Documentation
+
+- add bump files documentation to README ([5aeb23e](https://github.com/SylphxAI/bump/commit/5aeb23e057625a667d49a878abe89000d2d391ba))
+
 ## 1.3.11 (2025-11-29)
 
 ### 🐛 Bug Fixes
