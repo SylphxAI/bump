@@ -9,7 +9,10 @@
  * File format:
  * ---
  * release: patch | minor | major | "1.2.3"
- * package: @scope/pkg  # optional, for monorepo
+ * package: @scope/pkg        # single package (optional)
+ * packages:                  # multiple packages (optional)
+ *   - @scope/core
+ *   - @scope/utils
  * ---
  *
  * Custom changelog content here.
@@ -26,8 +29,10 @@ export interface BumpFile {
 	path: string
 	/** Release type or explicit version */
 	release: ReleaseType | string
-	/** Package name (for monorepo, optional) */
+	/** Single package name (for monorepo, optional) */
 	package?: string
+	/** Multiple package names (for monorepo, optional) */
+	packages?: string[]
 	/** Custom changelog content */
 	content: string
 }
@@ -95,8 +100,9 @@ export function writeBumpState(cwd: string, state: BumpState): void {
 /**
  * Parse frontmatter from markdown content
  * Returns [frontmatter object, content after frontmatter]
+ * Supports both simple key: value and YAML arrays (key:\n  - item1\n  - item2)
  */
-function parseFrontmatter(content: string): [Record<string, string>, string] {
+function parseFrontmatter(content: string): [Record<string, string | string[]>, string] {
 	const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---\s*\n?([\s\S]*)$/
 	const match = content.match(frontmatterRegex)
 
@@ -105,14 +111,40 @@ function parseFrontmatter(content: string): [Record<string, string>, string] {
 	}
 
 	const [, frontmatterStr, bodyContent] = match
-	const frontmatter: Record<string, string> = {}
+	const frontmatter: Record<string, string | string[]> = {}
 
 	if (frontmatterStr) {
-		for (const line of frontmatterStr.split('\n')) {
+		const lines = frontmatterStr.split('\n')
+		let i = 0
+
+		while (i < lines.length) {
+			const line = lines[i]
 			const colonIndex = line.indexOf(':')
+
 			if (colonIndex > 0) {
 				const key = line.slice(0, colonIndex).trim()
 				let value = line.slice(colonIndex + 1).trim()
+
+				// Check if this is an array (value is empty and next lines start with "  -")
+				if (value === '' && i + 1 < lines.length && lines[i + 1]?.match(/^\s+-/)) {
+					const items: string[] = []
+					i++
+					while (i < lines.length && lines[i]?.match(/^\s+-/)) {
+						let item = lines[i].replace(/^\s+-\s*/, '').trim()
+						// Remove quotes if present
+						if (
+							(item.startsWith('"') && item.endsWith('"')) ||
+							(item.startsWith("'") && item.endsWith("'"))
+						) {
+							item = item.slice(1, -1)
+						}
+						items.push(item)
+						i++
+					}
+					frontmatter[key] = items
+					continue
+				}
+
 				// Remove quotes if present
 				if (
 					(value.startsWith('"') && value.endsWith('"')) ||
@@ -122,6 +154,7 @@ function parseFrontmatter(content: string): [Record<string, string>, string] {
 				}
 				frontmatter[key] = value
 			}
+			i++
 		}
 	}
 
@@ -144,12 +177,18 @@ export function parseBumpFile(filePath: string): BumpFile | null {
 		}
 
 		const id = filePath.split('/').pop()?.replace(/\.md$/, '') ?? ''
+		const release = frontmatter.release as string
+
+		// Handle package (single) and packages (array)
+		const pkg = typeof frontmatter.package === 'string' ? frontmatter.package : undefined
+		const pkgs = Array.isArray(frontmatter.packages) ? frontmatter.packages : undefined
 
 		return {
 			id,
 			path: filePath,
-			release: frontmatter.release,
-			package: frontmatter.package,
+			release,
+			package: pkg,
+			packages: pkgs,
 			content,
 		}
 	} catch {
@@ -256,9 +295,13 @@ export function getExplicitVersion(bumpFiles: BumpFile[]): string | null {
  */
 export function filterBumpFilesForPackage(bumpFiles: BumpFile[], packageName: string): BumpFile[] {
 	return bumpFiles.filter((bf) => {
-		// No package specified = applies to all (or single package mode)
-		if (!bf.package) return true
-		return bf.package === packageName
+		// No package/packages specified = applies to all (or single package mode)
+		if (!bf.package && !bf.packages) return true
+		// Check single package field
+		if (bf.package === packageName) return true
+		// Check packages array
+		if (bf.packages?.includes(packageName)) return true
+		return false
 	})
 }
 
