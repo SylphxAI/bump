@@ -394,15 +394,8 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
-	// Resolve workspace deps for publish (temporary)
-	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
-	if (packages.length > 0) {
-		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, packages)
-		resolveAllWorkspaceDeps(cwd, packages)
-		consola.info('  Resolved workspace dependencies')
-	}
-
-	// Install dependencies
+	// Install dependencies FIRST (before resolving workspace deps)
+	// This allows workspace:* to resolve from local packages
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
@@ -413,6 +406,15 @@ async function runPublishFromReleaseCommit(
 		if (installResult.exitCode !== 0) {
 			consola.warn('Install had issues, continuing...')
 		}
+	}
+
+	// Resolve workspace deps for publish (temporary)
+	// Must happen AFTER install so workspace:* can resolve locally
+	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
+	if (packages.length > 0) {
+		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, packages)
+		resolveAllWorkspaceDeps(cwd, packages)
+		consola.info('  Resolved workspace dependencies')
 	}
 
 	// Publish
