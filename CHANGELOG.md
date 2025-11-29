@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.9 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **publish:** install dependencies before resolving workspace deps ([ddbda90](https://github.com/SylphxAI/bump/commit/ddbda905a4774e2f096eb4eb7a7cc5706f7e6541))
+
 ## 1.3.8 (2025-11-29)
 
 ### 🐛 Bug Fixes
