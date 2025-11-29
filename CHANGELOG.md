@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.11 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **publish:** build all packages from root to handle dependencies ([fdb1bcb](https://github.com/SylphxAI/bump/commit/fdb1bcb0d6e7d1e6ac2e01dc2e12af254d4d2259))
+
 ## 1.3.10 (2025-11-29)
 
 ### 🐛 Bug Fixes
