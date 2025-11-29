@@ -5,19 +5,23 @@ import { $ } from 'zx'
 $.quiet = true
 import pc from 'picocolors'
 import {
-	calculateBumpsFromInfos,
+	calculateBumpWithBumpFiles,
 	calculateCascadeBumps,
-	calculateSingleBumpFromInfo,
+	consumeBumpFiles,
 	discoverPackages,
 	generateChangelogEntry,
 	getPackageReleaseInfos,
 	getSinglePackage,
 	getSinglePackageReleaseInfo,
+	hasChangesToProcess,
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
+	readBumpFiles,
+	readBumpState,
 	updateChangelog,
 	updatePackageVersion,
+	writeBumpState,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
 import { getCurrentBranch, getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
@@ -164,28 +168,53 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	const [config, gitRoot] = await Promise.all([loadConfig(cwd), getGitRoot()])
 	const baseBranch = options.baseBranch ?? config.baseBranch ?? 'main'
 
-	consola.start('Analyzing commits for release PR...')
+	consola.start('Analyzing commits and changesets for release PR...')
+
+	// Read bump files
+	const bumpFiles = readBumpFiles(cwd)
+	if (bumpFiles.length > 0) {
+		consola.info(`Found ${bumpFiles.length} bump file(s)`)
+	}
 
 	// Calculate bumps
 	let bumps: VersionBump[] = []
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
 
 	if (packages.length > 0) {
-		// Use shared functions for monorepo release calculation
+		// Monorepo mode
 		const packageInfos = await getPackageReleaseInfos(packages)
-		const { bumps: calculatedBumps, firstReleases } = calculateBumpsFromInfos(
-			packageInfos,
-			config,
-			gitRoot
-		)
 
-		// Log first releases
-		for (const release of firstReleases) {
-			consola.info(`First release: ${release.package}@${release.newVersion}`)
+		for (const { pkg, npmVersion, commits } of packageInfos) {
+			// Skip private packages
+			if (pkg.private) continue
+
+			// Check if there are changes to process (commits or bump files)
+			if (!hasChangesToProcess(commits, bumpFiles)) {
+				continue
+			}
+
+			// First release: use package.json version
+			if (!npmVersion) {
+				consola.info(`First release: ${pkg.name}@${pkg.version}`)
+				bumps.push({
+					package: pkg.name,
+					currentVersion: pkg.version,
+					newVersion: pkg.version,
+					releaseType: 'initial',
+					commits,
+				})
+				continue
+			}
+
+			// Calculate bump with bump file support
+			const bump = calculateBumpWithBumpFiles(pkg, commits, bumpFiles, config)
+			if (bump) {
+				bumps.push(bump)
+			}
 		}
 
-		if (calculatedBumps.length === 0) {
-			consola.info('No new commits since last releases')
+		if (bumps.length === 0) {
+			consola.info('No changes to release')
 
 			// Close existing PR if no changes
 			const existingPr = await findReleasePr()
@@ -201,8 +230,6 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 			return
 		}
-
-		bumps = calculatedBumps
 
 		// Cascade bump: find packages that depend on bumped packages
 		if (bumps.length > 0) {
@@ -237,7 +264,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			}
 		}
 	} else {
-		// Single package mode - use shared function
+		// Single package mode
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
@@ -246,8 +273,9 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 		const info = await getSinglePackageReleaseInfo(pkg)
 
-		if (info.commits.length === 0) {
-			consola.info('No new commits since last release')
+		// Check if there are changes to process
+		if (!hasChangesToProcess(info.commits, bumpFiles)) {
+			consola.info('No changes to release')
 
 			// Close existing PR if no changes
 			const existingPr = await findReleasePr()
@@ -264,7 +292,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		// First release: log and use package.json version
+		// First release: use package.json version
 		if (!info.npmVersion) {
 			consola.info(`First release: ${pkg.name}@${pkg.version}`)
 			bumps = [
@@ -277,7 +305,8 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				},
 			]
 		} else {
-			const bump = calculateSingleBumpFromInfo(info, config)
+			// Calculate bump with bump file support
+			const bump = calculateBumpWithBumpFiles(pkg, info.commits, bumpFiles, config)
 			if (bump) bumps = [bump]
 		}
 	}
@@ -334,7 +363,7 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 	// Check for existing PR
 	const existingPr = await findReleasePr()
 
-	// Helper to apply version changes
+	// Helper to apply version changes and consume bump files
 	const applyVersionChanges = () => {
 		for (const bump of bumps) {
 			const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
@@ -343,6 +372,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Update CHANGELOG.md
 			const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
 			updateChangelog(pkgPath, entry, config)
+		}
+
+		// Consume (delete) bump files - they'll be removed when PR is merged
+		if (bumpFiles.length > 0) {
+			consumeBumpFiles(bumpFiles)
 		}
 	}
 

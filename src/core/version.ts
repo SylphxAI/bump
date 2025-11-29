@@ -185,6 +185,8 @@ export function calculateSingleBump(
 			preminor: 'preminor',
 			prepatch: 'prepatch',
 			prerelease: 'prerelease',
+			initial: 'initial', // Keep as-is
+			manual: 'manual', // Keep as-is
 		}
 		releaseType = preReleaseMap[releaseType] ?? releaseType
 	}
@@ -253,6 +255,8 @@ export function calculateMonorepoBumps(
 					preminor: 'preminor',
 					prepatch: 'prepatch',
 					prerelease: 'prerelease',
+					initial: 'initial', // Keep as-is
+					manual: 'manual', // Keep as-is
 				}
 				releaseType = preReleaseMap[releaseType] ?? releaseType
 			}

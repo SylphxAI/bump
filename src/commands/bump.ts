@@ -74,19 +74,16 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		// Pre-fetch all tags once for reuse
 		const allTags = await getAllTags()
 
-		// Process all packages in parallel - use npm published version as baseline
+		// Process all packages in parallel - LOCAL version is SSOT
 		const packageResults = await Promise.all(
 			packages.map(async (pkg) => {
-				// Query npm for the latest published version (source of truth)
+				// Query npm to check if publish is needed (local vs npm comparison)
 				const npmVersion = await getNpmPublishedVersion(pkg.name)
 
-				// Find the git tag corresponding to that npm version
-				let baselineTag: string | null = null
-				if (npmVersion) {
-					baselineTag = findTagForVersion(npmVersion, allTags, pkg.name)
-				}
+				// Find baseline tag for LOCAL version (not npm)
+				let baselineTag: string | null = findTagForVersion(pkg.version, allTags, pkg.name)
 
-				// Fall back to latest git tag if npm version not found or tag missing
+				// Fall back to latest git tag if no tag for current version
 				if (!baselineTag) {
 					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
 				}
@@ -99,22 +96,22 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		// Build contexts from parallel results, handling first releases
 		const contexts: MonorepoBumpContext[] = []
 		const firstReleases: VersionBump[] = []
+		const alreadyBumped: VersionBump[] = [] // local > npm
 
 		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
-			if (commits.length === 0) continue
-
-			// Collect all commits for reporting
+			// Collect all commits for reporting (even for already-bumped packages)
 			for (const c of commits) {
 				if (!allCommits.some((ac) => ac.hash === c.hash)) {
 					allCommits.push(c)
 				}
 			}
 
-			const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'no previous release')
+			const baseline = baselineTag ?? 'no previous release'
 			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 
-			// First release: use package.json version directly
+			// First release: use package.json version directly (but need commits)
 			if (!npmVersion) {
+				if (commits.length === 0) continue
 				consola.info(`  ${pc.dim('→')} First release: ${pkg.version}`)
 				firstReleases.push({
 					package: pkg.name,
@@ -123,18 +120,42 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 					releaseType: 'initial',
 					commits,
 				})
-			} else {
-				// Already published: calculate bump from npm version
-				contexts.push({
-					package: pkg,
-					commits,
-					latestTag: baselineTag,
-				})
+				continue
 			}
+
+			// Local > npm: already bumped, just publish
+			const semver = await import('semver')
+			if (semver.default.gt(pkg.version, npmVersion)) {
+				consola.info(`  ${pc.dim('→')} Already bumped: ${npmVersion} → ${pkg.version}`)
+				alreadyBumped.push({
+					package: pkg.name,
+					currentVersion: npmVersion,
+					newVersion: pkg.version,
+					releaseType: 'manual',
+					commits,
+				})
+				continue
+			}
+
+			// Local < npm: something is wrong, skip
+			if (semver.default.lt(pkg.version, npmVersion)) {
+				consola.warn(`  ${pc.dim('→')} Skipping: local ${pkg.version} < npm ${npmVersion}`)
+				continue
+			}
+
+			// Local == npm: need new commits to bump
+			if (commits.length === 0) continue
+
+			// Calculate bump from LOCAL version
+			contexts.push({
+				package: pkg,
+				commits,
+				latestTag: baselineTag,
+			})
 		}
 
-		if (contexts.length === 0 && firstReleases.length === 0) {
-			consola.info('No new commits since last releases')
+		if (contexts.length === 0 && firstReleases.length === 0 && alreadyBumped.length === 0) {
+			consola.info('No version changes needed')
 			return {
 				config,
 				packages,
@@ -144,9 +165,10 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}
 		}
 
-		// Combine first releases with calculated bumps
+		// Combine first releases, already bumped, and calculated bumps
 		bumps = [
 			...firstReleases,
+			...alreadyBumped,
 			...calculateMonorepoBumps(contexts, config, {
 				gitRoot,
 				preid: options.preid,
@@ -154,24 +176,21 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			}),
 		]
 	} else {
-		// Single package mode - use npm published version as baseline
+		// Single package mode - LOCAL version is SSOT
 		const pkg = getSinglePackage(cwd)
 		if (!pkg) {
 			consola.error('No package.json found')
 			return { config, packages: [], commits: [], bumps: [], dryRun: options.dryRun ?? false }
 		}
 
-		// Query npm for the latest published version (source of truth)
+		// Query npm to check if publish is needed (local vs npm comparison)
 		const npmVersion = await getNpmPublishedVersion(pkg.name)
 		const allTags = await getAllTags()
 
-		// Find the git tag corresponding to that npm version
-		let baselineTag: string | null = null
-		if (npmVersion) {
-			baselineTag = findTagForVersion(npmVersion, allTags)
-		}
+		// Find baseline tag for LOCAL version (not npm)
+		let baselineTag: string | null = findTagForVersion(pkg.version, allTags)
 
-		// Fall back to latest git tag if npm version not found or tag missing
+		// Fall back to latest git tag if no tag for current version
 		if (!baselineTag) {
 			baselineTag = await getLatestTag()
 		}
@@ -179,18 +198,7 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		const commits = await getConventionalCommits(baselineTag ?? undefined)
 		allCommits = commits
 
-		if (commits.length === 0) {
-			consola.info('No new commits since last release')
-			return {
-				config,
-				packages: [],
-				commits: [],
-				bumps: [],
-				dryRun: options.dryRun ?? false,
-			}
-		}
-
-		const baseline = npmVersion ? `npm@${npmVersion}` : (baselineTag ?? 'beginning')
+		const baseline = baselineTag ?? 'beginning'
 		consola.info(`Found ${pc.bold(commits.length)} commits since ${baseline}`)
 
 		if (options.verbose) {
@@ -203,9 +211,18 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
 		}
 
-		// First release: use package.json version directly (developer's intent)
-		// Already published: use npm version as baseline (source of truth)
+		// First release: use package.json version directly (but need commits)
 		if (!npmVersion) {
+			if (commits.length === 0) {
+				consola.info('No new commits since last release')
+				return {
+					config,
+					packages: [],
+					commits: [],
+					bumps: [],
+					dryRun: options.dryRun ?? false,
+				}
+			}
 			consola.info(`First release: ${pkg.name}@${pkg.version}`)
 			bumps = [
 				{
@@ -217,12 +234,48 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 				},
 			]
 		} else {
-			const pkgWithNpmVersion = { ...pkg, version: npmVersion }
-			const bump = calculateSingleBump(pkgWithNpmVersion, commits, config, {
-				preid: options.preid,
-				prerelease: options.prerelease,
-			})
-			if (bump) bumps = [bump]
+			// Local > npm: already bumped, just publish
+			const semver = await import('semver')
+			if (semver.default.gt(pkg.version, npmVersion)) {
+				consola.info(`Already bumped: ${npmVersion} → ${pkg.version}`)
+				bumps = [
+					{
+						package: pkg.name,
+						currentVersion: npmVersion,
+						newVersion: pkg.version,
+						releaseType: 'manual',
+						commits,
+					},
+				]
+			} else if (semver.default.lt(pkg.version, npmVersion)) {
+				// Local < npm: something is wrong, skip
+				consola.warn(`Skipping: local ${pkg.version} < npm ${npmVersion}`)
+				return {
+					config,
+					packages: [],
+					commits: [],
+					bumps: [],
+					dryRun: options.dryRun ?? false,
+				}
+			} else {
+				// Local == npm: need new commits to bump
+				if (commits.length === 0) {
+					consola.info('No new commits since last release')
+					return {
+						config,
+						packages: [],
+						commits: [],
+						bumps: [],
+						dryRun: options.dryRun ?? false,
+					}
+				}
+				// Calculate bump from LOCAL version
+				const bump = calculateSingleBump(pkg, commits, config, {
+					preid: options.preid,
+					prerelease: options.prerelease,
+				})
+				if (bump) bumps = [bump]
+			}
 		}
 	}
 

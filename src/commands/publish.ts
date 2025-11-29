@@ -246,9 +246,18 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		const publishResult = await $({ cwd: pkgPath })`npm publish --access public`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
-			consola.error(`  Failed to publish ${bump.package}: ${publishResult.stderr}`)
+			const stderr = publishResult.stderr
+			// Provide helpful message for blocked versions
+			if (
+				stderr.includes('Cannot publish over previously published version') ||
+				stderr.includes('cannot publish over the previously published versions')
+			) {
+				consola.error(`  Version ${bump.newVersion} is blocked on npm`)
+				consola.info(`  → Manually bump to a higher version and create a new PR`)
+			} else {
+				consola.error(`  Failed to publish ${bump.package}: ${stderr}`)
+			}
 			allSuccess = false
-			// Don't continue - we want atomic publish
 			break
 		}
 
@@ -360,7 +369,7 @@ async function runPublishFromReleaseCommit(
 			// Skip private packages - they should never be published
 			if (pkg.private) continue
 			const npmVersion = await getNpmPublishedVersion(pkg.name)
-			// Publish if: not on npm yet, or local version is newer
+			// Publish if: not on npm yet, or local version is different from npm version
 			if (!npmVersion || pkg.version !== npmVersion) {
 				packagesToPublish.push({ name: pkg.name, version: pkg.version, path: pkg.path })
 			}
@@ -446,7 +455,17 @@ async function runPublishFromReleaseCommit(
 		const publishResult = await $({ cwd: pkg.path })`npm publish --access public --ignore-scripts`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
-			consola.error(`  Failed to publish ${pkg.name}: ${publishResult.stderr}`)
+			const stderr = publishResult.stderr
+			// Provide helpful message for blocked versions
+			if (
+				stderr.includes('Cannot publish over previously published version') ||
+				stderr.includes('cannot publish over the previously published versions')
+			) {
+				consola.error(`  Version ${pkg.version} is blocked on npm`)
+				consola.info(`  → Manually bump to a higher version and create a new PR`)
+			} else {
+				consola.error(`  Failed to publish ${pkg.name}: ${stderr}`)
+			}
 			allSuccess = false
 			break
 		}

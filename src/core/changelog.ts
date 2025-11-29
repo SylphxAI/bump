@@ -41,7 +41,7 @@ export function generateChangelogEntry(
 	config: BumpConfig,
 	options?: ChangelogOptions
 ): string {
-	const { newVersion, commits } = bump
+	const { newVersion, commits, bumpFileContent, changesetContent } = bump
 	const date = new Date().toISOString().split('T')[0]
 	const repoUrl = options?.repoUrl
 	// Format is reserved for future use (different changelog formats)
@@ -53,6 +53,14 @@ export function generateChangelogEntry(
 	lines.push(`## ${newVersion} (${date})`)
 	lines.push('')
 
+	// Bump file content first (hand-written, takes priority)
+	// Support both new and legacy field names
+	const customContent = bumpFileContent || changesetContent
+	if (customContent) {
+		lines.push(customContent)
+		lines.push('')
+	}
+
 	if (commits.length === 0) {
 		// Check if this is a dependency update bump
 		if (bump.updatedDeps && bump.updatedDeps.length > 0) {
@@ -61,7 +69,8 @@ export function generateChangelogEntry(
 			for (const dep of bump.updatedDeps) {
 				lines.push(`- Updated \`${dep.name}\` to ${dep.version}`)
 			}
-		} else {
+		} else if (!customContent) {
+			// Only show "No notable changes" if there's no custom content either
 			lines.push('No notable changes.')
 		}
 		lines.push('')

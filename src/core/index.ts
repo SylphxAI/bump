@@ -46,6 +46,36 @@ export {
 	getSinglePackageReleaseInfo,
 	calculateBumpsFromInfos,
 	calculateSingleBumpFromInfo,
+	calculateBumpWithBumpFiles,
+	calculateBumpWithChangesets, // Legacy alias
+	hasChangesToProcess,
 	type PackageReleaseInfo,
 	type CalculateBumpsResult,
 } from './release.ts'
+export {
+	// Primary exports (new names)
+	readBumpFiles,
+	parseBumpFile,
+	consumeBumpFiles,
+	readBumpState,
+	writeBumpState,
+	filterBumpFilesForPackage,
+	generateBumpFileChangelog,
+	getHighestReleaseType,
+	getExplicitVersion,
+	isExplicitVersion,
+	getBumpDir,
+	hasBumpDir,
+	type BumpFile,
+	type BumpState,
+	// Legacy aliases (deprecated)
+	readChangesets,
+	parseChangeset,
+	consumeChangesets,
+	readChangesetState,
+	writeChangesetState,
+	filterChangesetsForPackage,
+	generateChangesetChangelog,
+	type Changeset,
+	type ChangesetState,
+} from './changeset.ts'

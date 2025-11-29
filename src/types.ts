@@ -7,6 +7,7 @@ export type ReleaseType =
 	| 'prepatch'
 	| 'prerelease'
 	| 'initial'
+	| 'manual' // Local > npm: already bumped (from merged PR), just publish
 
 export type VersionStrategy = 'independent' | 'fixed' | 'synced'
 
@@ -114,6 +115,10 @@ export interface VersionBump {
 	commits: ConventionalCommit[]
 	/** Updated dependencies that triggered this bump (for cascade bumps) */
 	updatedDeps?: Array<{ name: string; version: string }>
+	/** Custom changelog content from bump files (.bump/*.md) */
+	bumpFileContent?: string
+	/** @deprecated Use bumpFileContent instead */
+	changesetContent?: string
 }
 
 export interface ReleaseContext {
