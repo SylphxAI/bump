@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.7 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **packages:** skip private packages in cascade bumps ([c24d2e9](https://github.com/SylphxAI/bump/commit/c24d2e903a15e9ef25ecbb7ea1390f4f9d9f1d1c))
+
 ## 1.3.6 (2025-11-29)
 
 ### 🐛 Bug Fixes
