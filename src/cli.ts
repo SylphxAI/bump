@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import consola from 'consola'
 import { defineCommand, runMain } from 'citty'
 import pkg from '../package.json'
 import { runAdd, runAddInteractive } from './commands/add.ts'
 import { runInit } from './commands/init.ts'
+import { runPr } from './commands/pr.ts'
+import { runPublish } from './commands/publish.ts'
 import { runStatus } from './commands/status.ts'
 
 const bump = defineCommand({
@@ -106,6 +109,53 @@ const bump = defineCommand({
 			},
 			run: async () => {
 				await runStatus()
+			},
+		}),
+		// CI-only commands (not for local use)
+		pr: defineCommand({
+			meta: {
+				name: 'pr',
+				// No description = hidden from help
+			},
+			args: {
+				'dry-run': {
+					type: 'boolean',
+					alias: 'd',
+				},
+				base: {
+					type: 'string',
+					default: 'main',
+				},
+			},
+			run: async ({ args }) => {
+				await runPr({
+					dryRun: Boolean(args['dry-run']),
+					baseBranch: args.base as string,
+				})
+			},
+		}),
+		publish: defineCommand({
+			meta: {
+				name: 'publish',
+				// No description = hidden from help
+			},
+			args: {
+				'dry-run': {
+					type: 'boolean',
+					alias: 'd',
+				},
+			},
+			run: async ({ args }) => {
+				const result = await runPublish({
+					dryRun: Boolean(args['dry-run']),
+				})
+				// Output machine-readable result for CI
+				if (result.packages.length > 0) {
+					console.log(`::bump-result::${JSON.stringify(result)}`)
+				}
+				if (!result.published) {
+					process.exit(0) // No packages to publish is not an error
+				}
 			},
 		}),
 	},
