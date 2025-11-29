@@ -9,8 +9,8 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 - **Automatic Release PRs** - Preview changes before publishing
 - **Monorepo native** - File-based detection, independent versioning, cascade bumps
 - **Workspace protocol** - Auto-resolves `workspace:*` dependencies at publish time
-- **Pre-releases** - Alpha, beta, RC with single flag
-- **Graduate to 1.0** - CLI flag or config to go from 0.x → 1.0.0
+- **Pre-releases** - Alpha, beta, RC via bump files
+- **Graduate to 1.0** - Bump file to go from 0.x → 1.0.0
 - **Cross-platform** - Works with npm, yarn, pnpm, and bun
 - **GitHub integration** - Auto-creates releases and changelogs
 - **Bump files** - Optional manual control with custom changelogs
@@ -112,9 +112,14 @@ Other prefixes like `docs:`, `chore:`, `test:`, `ci:` don't trigger releases.
 During 0.x development, breaking changes bump minor instead of major (per semver spec):
 - `feat!:` on 0.1.0 → 0.2.0 (not 1.0.0)
 
-When ready for stable release, use the `--graduate` flag:
-```bash
-npx bump --graduate    # 0.x.x → 1.0.0
+When ready for stable release, create a bump file:
+```markdown
+# .bump/graduate.md
+---
+release: "1.0.0"
+---
+
+First stable release!
 ```
 
 ## What Happens
@@ -187,35 +192,27 @@ Then go to Actions → Release → Run workflow.
 
 ## CLI Usage
 
-You can also use bump locally:
+The CLI is for local development - checking status and creating bump files:
 
 ```bash
-# Install (works with any package manager)
+# Install
 npm add -D @sylphx/bump
-pnpm add -D @sylphx/bump
-yarn add -D @sylphx/bump
-bun add -D @sylphx/bump
 
-# Check what would be released
-npx bump status
+# Check release status (also runs with just `bump`)
+bump status
 
-# Preview release
-npx bump --dry-run
+# Create bump files
+bump add                      # Interactive mode
+bump add minor                # Minor release
+bump add patch --beta         # Patch with beta prerelease
+bump add minor -p @scope/core # Target specific package
+bump add "1.0.0"              # Explicit version
 
-# Release
-npx bump
-
-# Graduate from 0.x to 1.0.0
-npx bump --graduate           # 0.5.0 → 1.0.0
-
-# Debug mode
-npx bump --verbose            # Show detailed debug output
-npx bump -v --dry-run         # Debug + preview
+# Initialize config (optional)
+bump init
 ```
 
-For pre-releases, use bump files instead of CLI flags (see [Pre-releases](#pre-releases)).
-
-> **Note**: Replace `npx` with `bunx`, `pnpm dlx`, or `yarn dlx` based on your package manager.
+> **Note**: Releases are handled automatically by GitHub Actions. The CLI is only for local development.
 
 ## Monorepo Support
 
@@ -267,10 +264,6 @@ Create `bump.config.ts` for custom settings:
 import { defineConfig } from '@sylphx/bump'
 
 export default defineConfig({
-  // Pre-release mode: set to 'alpha', 'beta', or 'rc'
-  // Remove or set to false for stable releases
-  prerelease: 'beta',  // → 1.1.0-beta.0
-
   // Customize commit types
   conventional: {
     types: {
@@ -319,27 +312,6 @@ Workflow:
 4. For stable release, create `.bump/stable.md` without `prerelease`
 5. Push → PR created for `v1.1.0`
 
-<details>
-<summary>⚠️ Deprecated: Config and CLI flags</summary>
-
-The following methods are deprecated and will show warnings:
-
-```typescript
-// bump.config.ts - DEPRECATED
-export default defineConfig({
-  prerelease: 'beta',  // Use bump files instead
-})
-```
-
-```bash
-# CLI flags - DEPRECATED
-npx bump --preid beta      # Use bump files instead
-npx bump --alpha           # Use bump files instead
-npx bump --beta            # Use bump files instead
-npx bump --rc              # Use bump files instead
-```
-
-</details>
 
 ## Bump Files
 
@@ -347,10 +319,39 @@ While bump works automatically from commits, you can use **bump files** for:
 - Custom changelog entries with hand-written release notes
 - Manual version specification (e.g., recovery from blocked npm versions)
 - Triggering releases without conventional commits
+- Pre-release versions (alpha, beta, rc)
 
-### Basic Usage
+### Creating Bump Files
 
-Create a markdown file in `.bump/` directory:
+Use the `bump add` command:
+
+```bash
+# Interactive mode - prompts for all options
+bump add
+
+# Quick creation
+bump add patch                    # Patch release
+bump add minor                    # Minor release
+bump add major                    # Major release
+
+# With prerelease
+bump add minor --alpha            # 1.0.0 → 1.1.0-alpha.0
+bump add minor --beta             # 1.0.0 → 1.1.0-beta.0
+bump add minor --rc               # 1.0.0 → 1.1.0-rc.0
+bump add patch --prerelease next  # Custom prerelease tag
+
+# Target specific package (monorepo)
+bump add patch -p @scope/core
+bump add minor --package @scope/utils
+
+# With changelog message
+bump add minor -m "Added new dashboard feature"
+
+# Explicit version (recovery)
+bump add "1.2.3"                  # Set exact version
+```
+
+Or create a markdown file in `.bump/` directory manually:
 
 ```markdown
 # .bump/feature.md
