@@ -13,6 +13,7 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 - **Graduate to 1.0** - CLI flag or config to go from 0.x → 1.0.0
 - **Cross-platform** - Works with npm, yarn, pnpm, and bun
 - **GitHub integration** - Auto-creates releases and changelogs
+- **Bump files** - Optional manual control with custom changelogs
 
 ## Why bump?
 
@@ -23,13 +24,13 @@ Fully semantic release automation. Conventional commits in, semantic versions ou
 | **Version control** | Automatic from commits | Manual per-changeset |
 | **Learning curve** | Know conventional commits? Done | New syntax + tooling |
 | **PR noise** | 1 release PR | 1 changeset file per change |
-| **Fine-grained control** | Via commit message | Via changeset file |
+| **Fine-grained control** | Via commit message or bump file | Via changeset file |
 | **Workspace protocol** | Auto-resolved | Manual handling required |
 | **Cascade bumps** | Automatic | Manual configuration |
 
 Both tools support fine-grained version control - the difference is **where** you express it:
 
-- **bump**: Control versions through commit messages (`feat:` = minor, `fix:` = patch, `feat!:` = major)
+- **bump**: Control versions through commit messages (`feat:` = minor, `fix:` = patch, `feat!:` = major), or optionally via bump files for custom changelog entries
 - **changesets**: Control versions through separate changeset files
 
 Choose **bump** if you prefer keeping version intent in your git history.
@@ -328,6 +329,90 @@ Workflow:
 npx bump --preid beta      # 1.0.0 → 1.1.0-beta.0
 npx bump --prerelease      # 1.1.0-beta.0 → 1.1.0-beta.1
 ```
+
+## Bump Files (Manual Control)
+
+While bump works automatically from commits, you can use **bump files** for:
+- Custom changelog entries with hand-written release notes
+- Manual version specification (e.g., recovery from blocked npm versions)
+- Triggering releases without conventional commits
+
+### Basic Usage
+
+Create a markdown file in `.bump/` directory:
+
+```markdown
+# .bump/feature.md
+---
+release: minor
+---
+
+### New Dashboard
+
+Completely redesigned the analytics dashboard with:
+- Real-time data updates
+- Customizable widgets
+- Export to PDF/CSV
+```
+
+The `release` field can be:
+- `patch`, `minor`, `major` - version bump type
+- `"1.2.3"` - explicit version (for recovery scenarios)
+
+### Monorepo Support
+
+**Single package:**
+```markdown
+---
+release: patch
+package: @scope/core
+---
+
+Bug fix for core module.
+```
+
+**Multiple packages:**
+```markdown
+---
+release: minor
+packages:
+  - @scope/core
+  - @scope/utils
+---
+
+Shared feature across packages.
+```
+
+**All packages** (omit package field):
+```markdown
+---
+release: patch
+---
+
+Security fix for all packages.
+```
+
+### How It Works
+
+1. Create `.bump/*.md` file with frontmatter
+2. Push to main → Release PR includes your custom changelog
+3. Merge PR → Bump files are automatically removed
+
+### Recovery Example
+
+If npm publish fails due to a blocked version:
+
+```markdown
+# .bump/recovery.md
+---
+release: "1.2.1"
+package: @scope/mypackage
+---
+
+Recovery release after npm publish failure.
+```
+
+Push this file, and bump will create a new PR with version `1.2.1`.
 
 ## Action Inputs
 
