@@ -24,6 +24,7 @@ import {
 	filterBumpFilesForPackage,
 	getExplicitVersion,
 	getHighestReleaseType,
+	getPrerelease,
 	isExplicitVersion,
 } from './changeset.ts'
 import { getConventionalCommits } from './commits.ts'
@@ -237,6 +238,9 @@ export function calculateBumpWithBumpFiles(
 ): VersionBump | null {
 	const pkgBumpFiles = filterBumpFilesForPackage(bumpFiles, pkg.name)
 
+	// Get prerelease identifier from bump files (alpha, beta, rc)
+	const preid = getPrerelease(pkgBumpFiles)
+
 	// Check for explicit version in bump files
 	const explicitVersion = getExplicitVersion(pkgBumpFiles)
 	if (explicitVersion) {
@@ -255,7 +259,7 @@ export function calculateBumpWithBumpFiles(
 
 	// If we have bump files but no commits, still do the bump
 	if (bumpFileReleaseType && commits.length === 0) {
-		const newVersion = incrementVersion(pkg.version, bumpFileReleaseType)
+		const newVersion = incrementVersion(pkg.version, bumpFileReleaseType, preid ?? undefined)
 		return {
 			package: pkg.name,
 			currentVersion: pkg.version,
@@ -290,7 +294,7 @@ export function calculateBumpWithBumpFiles(
 		}
 	}
 
-	const newVersion = incrementVersion(pkg.version, finalReleaseType)
+	const newVersion = incrementVersion(pkg.version, finalReleaseType, preid ?? undefined)
 
 	return {
 		package: pkg.name,

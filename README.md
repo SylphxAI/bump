@@ -355,9 +355,37 @@ Completely redesigned the analytics dashboard with:
 - Export to PDF/CSV
 ```
 
-The `release` field can be:
-- `patch`, `minor`, `major` - version bump type
-- `"1.2.3"` - explicit version (for recovery scenarios)
+**Fields:**
+- `release` - `patch`, `minor`, `major`, or explicit version `"1.2.3"`
+- `prerelease` - (optional) `alpha`, `beta`, `rc`
+- `package` / `packages` - (optional) target package(s)
+
+### Prerelease Versions
+
+```markdown
+# .bump/beta-feature.md
+---
+release: minor
+prerelease: beta
+---
+
+New feature in beta testing.
+```
+→ `1.0.0` → `1.1.0-beta.0`
+
+```markdown
+# .bump/rc.md
+---
+release: patch
+prerelease: rc
+packages:
+  - @scope/core
+  - @scope/utils
+---
+
+Release candidate.
+```
+→ `1.0.0` → `1.0.1-rc.0`
 
 ### Monorepo Support
 

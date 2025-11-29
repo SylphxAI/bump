@@ -63,6 +63,7 @@ export {
 	generateBumpFileChangelog,
 	getHighestReleaseType,
 	getExplicitVersion,
+	getPrerelease,
 	isExplicitVersion,
 	getBumpDir,
 	hasBumpDir,

@@ -3,6 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
 	filterBumpFilesForPackage,
+	getPrerelease,
 	parseBumpFile,
 	readBumpFiles,
 	type BumpFile,
@@ -114,6 +115,44 @@ Missing release field.
 			const result = parseBumpFile(filePath)
 			expect(result).toBeNull()
 		})
+
+		it('should parse bump file with prerelease', () => {
+			const filePath = join(BUMP_DIR, 'test.md')
+			writeFileSync(
+				filePath,
+				`---
+release: minor
+prerelease: beta
+---
+
+Beta feature.
+`
+			)
+
+			const result = parseBumpFile(filePath)
+			expect(result?.release).toBe('minor')
+			expect(result?.prerelease).toBe('beta')
+		})
+
+		it('should parse bump file with prerelease and package', () => {
+			const filePath = join(BUMP_DIR, 'test.md')
+			writeFileSync(
+				filePath,
+				`---
+release: minor
+prerelease: alpha
+package: @scope/core
+---
+
+Alpha release for core.
+`
+			)
+
+			const result = parseBumpFile(filePath)
+			expect(result?.release).toBe('minor')
+			expect(result?.prerelease).toBe('alpha')
+			expect(result?.package).toBe('@scope/core')
+		})
 	})
 
 	describe('readBumpFiles', () => {
@@ -182,6 +221,34 @@ Fix B.
 			const result = filterBumpFilesForPackage(bumpFiles, '@scope/unknown')
 			expect(result).toHaveLength(1)
 			expect(result[0]?.id).toBe('global')
+		})
+	})
+
+	describe('getPrerelease', () => {
+		it('should return prerelease from bump file', () => {
+			const bumpFiles: BumpFile[] = [
+				{ id: 'beta', path: '', release: 'minor', prerelease: 'beta', content: 'Beta' },
+			]
+			expect(getPrerelease(bumpFiles)).toBe('beta')
+		})
+
+		it('should return first prerelease when multiple exist', () => {
+			const bumpFiles: BumpFile[] = [
+				{ id: 'alpha', path: '', release: 'minor', prerelease: 'alpha', content: 'Alpha' },
+				{ id: 'beta', path: '', release: 'minor', prerelease: 'beta', content: 'Beta' },
+			]
+			expect(getPrerelease(bumpFiles)).toBe('alpha')
+		})
+
+		it('should return null when no prerelease', () => {
+			const bumpFiles: BumpFile[] = [
+				{ id: 'stable', path: '', release: 'minor', content: 'Stable' },
+			]
+			expect(getPrerelease(bumpFiles)).toBeNull()
+		})
+
+		it('should return null for empty array', () => {
+			expect(getPrerelease([])).toBeNull()
 		})
 	})
 })

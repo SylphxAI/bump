@@ -5,12 +5,14 @@
  * 1. Manual version specification (for blocked version recovery)
  * 2. Custom changelog entries
  * 3. Explicit release triggers
+ * 4. Prerelease versions (alpha, beta, rc)
  *
  * File format:
  * ---
  * release: patch | minor | major | "1.2.3"
- * package: @scope/pkg        # single package (optional)
- * packages:                  # multiple packages (optional)
+ * prerelease: alpha | beta | rc   # optional, creates prerelease version
+ * package: @scope/pkg             # single package (optional)
+ * packages:                       # multiple packages (optional)
  *   - @scope/core
  *   - @scope/utils
  * ---
@@ -29,6 +31,8 @@ export interface BumpFile {
 	path: string
 	/** Release type or explicit version */
 	release: ReleaseType | string
+	/** Prerelease identifier (alpha, beta, rc) */
+	prerelease?: string
 	/** Single package name (for monorepo, optional) */
 	package?: string
 	/** Multiple package names (for monorepo, optional) */
@@ -179,6 +183,10 @@ export function parseBumpFile(filePath: string): BumpFile | null {
 		const id = filePath.split('/').pop()?.replace(/\.md$/, '') ?? ''
 		const release = frontmatter.release as string
 
+		// Handle prerelease (alpha, beta, rc)
+		const prerelease =
+			typeof frontmatter.prerelease === 'string' ? frontmatter.prerelease : undefined
+
 		// Handle package (single) and packages (array)
 		const pkg = typeof frontmatter.package === 'string' ? frontmatter.package : undefined
 		const pkgs = Array.isArray(frontmatter.packages) ? frontmatter.packages : undefined
@@ -187,6 +195,7 @@ export function parseBumpFile(filePath: string): BumpFile | null {
 			id,
 			path: filePath,
 			release,
+			prerelease,
 			package: pkg,
 			packages: pkgs,
 			content,
@@ -288,6 +297,19 @@ export function getExplicitVersion(bumpFiles: BumpFile[]): string | null {
 	}
 
 	return highest
+}
+
+/**
+ * Get prerelease identifier from bump files (alpha, beta, rc)
+ * Returns the first prerelease found (or null if none)
+ */
+export function getPrerelease(bumpFiles: BumpFile[]): string | null {
+	for (const bf of bumpFiles) {
+		if (bf.prerelease) {
+			return bf.prerelease
+		}
+	}
+	return null
 }
 
 /**
