@@ -331,6 +331,7 @@ export function findDependentPackages(
 /**
  * Calculate cascade bumps for dependent packages
  * Returns packages that need to be bumped due to dependency updates
+ * Automatically filters out private packages
  */
 export function calculateCascadeBumps(
 	packages: PackageInfo[],
@@ -344,6 +345,11 @@ export function calculateCascadeBumps(
 
 	while (newDependents.length > 0) {
 		for (const pkg of newDependents) {
+			// Skip private packages - they should never be released
+			if (pkg.private) {
+				allBumped.add(pkg.name) // Still track to find their dependents
+				continue
+			}
 			cascadeBumps.push(pkg)
 			allBumped.add(pkg.name)
 		}

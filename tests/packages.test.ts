@@ -291,6 +291,58 @@ describe('packages', () => {
 
 			expect(cascade).toEqual([])
 		})
+
+		it('should skip private packages in cascade bumps', () => {
+			const packages: PackageInfo[] = [
+				{ name: '@scope/core', version: '1.0.0', path: '/core', private: false },
+				{
+					name: '@scope/utils',
+					version: '1.0.0',
+					path: '/utils',
+					private: false,
+					dependencies: { '@scope/core': '^1.0.0' },
+				},
+				{
+					name: 'private-example',
+					version: '1.0.0',
+					path: '/examples/private',
+					private: true, // Should be skipped
+					dependencies: { '@scope/core': '^1.0.0' },
+				},
+			]
+
+			const cascade = calculateCascadeBumps(packages, new Set(['@scope/core']))
+
+			// Only utils should be bumped, not private-example
+			expect(cascade.map((p) => p.name)).toEqual(['@scope/utils'])
+		})
+
+		it('should still find dependents of private packages', () => {
+			const packages: PackageInfo[] = [
+				{ name: '@scope/core', version: '1.0.0', path: '/core', private: false },
+				{
+					name: 'private-middle',
+					version: '1.0.0',
+					path: '/private',
+					private: true, // Private but has dependents
+					dependencies: { '@scope/core': '^1.0.0' },
+				},
+				{
+					name: '@scope/app',
+					version: '1.0.0',
+					path: '/app',
+					private: false,
+					dependencies: { 'private-middle': '^1.0.0' },
+				},
+			]
+
+			const cascade = calculateCascadeBumps(packages, new Set(['@scope/core']))
+
+			// app depends on private-middle which depends on core
+			// private-middle should be tracked but not included in result
+			// app should be included because it depends on private-middle
+			expect(cascade.map((p) => p.name)).toEqual(['@scope/app'])
+		})
 	})
 
 	describe('discoverPackages', () => {
