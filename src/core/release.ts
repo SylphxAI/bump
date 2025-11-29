@@ -30,14 +30,18 @@ export interface CalculateBumpsResult {
 /**
  * Fetch release info for all packages in parallel
  * Queries npm for published versions and finds baseline tags
+ * Automatically filters out private packages
  */
 export async function getPackageReleaseInfos(
 	packages: PackageInfo[]
 ): Promise<PackageReleaseInfo[]> {
 	const allTags = await getAllTags()
 
+	// Filter out private packages - they should never be released
+	const publicPackages = packages.filter((pkg) => !pkg.private)
+
 	return Promise.all(
-		packages.map(async (pkg) => {
+		publicPackages.map(async (pkg) => {
 			// Query npm for the latest published version (source of truth)
 			const npmVersion = await getNpmPublishedVersion(pkg.name)
 
@@ -93,6 +97,8 @@ export function calculateBumpsFromInfos(
 	const firstReleases: VersionBump[] = []
 
 	for (const { pkg, npmVersion, baselineTag, commits } of packageInfos) {
+		// Skip private packages (defense in depth - should already be filtered)
+		if (pkg.private) continue
 		if (commits.length === 0) continue
 
 		// First release: use package.json version directly
