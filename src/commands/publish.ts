@@ -357,6 +357,8 @@ async function runPublishFromReleaseCommit(
 	if (packages.length > 0) {
 		// Monorepo: check each package
 		for (const pkg of packages) {
+			// Skip private packages - they should never be published
+			if (pkg.private) continue
 			const npmVersion = await getNpmPublishedVersion(pkg.name)
 			// Publish if: not on npm yet, or local version is newer
 			if (!npmVersion || pkg.version !== npmVersion) {
