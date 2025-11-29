@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.8 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **publish:** skip private packages in runPublishFromReleaseCommit ([c4b8691](https://github.com/SylphxAI/bump/commit/c4b8691a7b63f18fbb9cd6a0931564395ffbc556))
+
 ## 1.3.7 (2025-11-29)
 
 ### 🐛 Bug Fixes
