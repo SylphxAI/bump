@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.3.10 (2025-11-29)
+
+### 🐛 Bug Fixes
+
+- **publish:** pre-build packages before resolving workspace deps ([1067533](https://github.com/SylphxAI/bump/commit/1067533a7936490bbb95227eaea82890da48add6))
+
 ## 1.3.9 (2025-11-29)
 
 ### 🐛 Bug Fixes
