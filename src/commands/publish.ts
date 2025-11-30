@@ -29,6 +29,26 @@ import { getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
 import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
 
+/**
+ * ⚠️ IMPORTANT: Bump does NOT build packages. Building is CI's responsibility.
+ *
+ * Bump only handles:
+ * 1. Version calculation (from commits/bump files)
+ * 2. package.json version updates
+ * 3. CHANGELOG generation
+ * 4. npm publish
+ * 5. Git commit/tag/push
+ * 6. GitHub release creation
+ *
+ * If a project needs to build before publish, the CI workflow must run
+ * the build step BEFORE calling bump. Example:
+ *
+ *   - run: bun run build
+ *   - uses: sylphxai/bump@v1
+ *
+ * DO NOT add build-related code here. Ever.
+ */
+
 export interface PublishOptions {
 	cwd?: string
 	dryRun?: boolean
@@ -211,7 +231,8 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		consola.info('  Resolved workspace dependencies')
 	}
 
-	// Step 2: Install dependencies (after version update so workspace:^ resolves correctly)
+	// Step 2: Install dependencies to update lockfile after version changes
+	// NOTE: This is NOT for building. CI must build BEFORE calling bump.
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
@@ -242,8 +263,8 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
-		// Use npm publish (universal across all package managers)
-		const publishResult = await $({ cwd: pkgPath })`npm publish --access public`.nothrow()
+		// Use npm publish with --ignore-scripts (CI should have built already)
+		const publishResult = await $({ cwd: pkgPath })`npm publish --access public --ignore-scripts`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
 			const stderr = publishResult.stderr
@@ -403,7 +424,8 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
-	// Install dependencies (with workspace:* intact)
+	// Install dependencies to update lockfile
+	// NOTE: This is NOT for building. CI must build BEFORE calling bump.
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
@@ -438,7 +460,7 @@ async function runPublishFromReleaseCommit(
 
 	for (const pkg of packagesToPublish) {
 		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
-		// Use --ignore-scripts since we already built all packages
+		// Use --ignore-scripts to avoid running build scripts (CI should have built already)
 		const publishResult = await $({ cwd: pkg.path })`npm publish --access public --ignore-scripts`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
