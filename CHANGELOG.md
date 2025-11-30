@@ -1,5 +1,12 @@
 # @sylphx/bump
 
+## 1.4.8 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **pm:** detect bun.lock (text format) in addition to bun.lockb ([223fcc2](https://github.com/SylphxAI/bump/commit/223fcc25a565fa197bb7e4d868e33c3417e2d9b7))
+- **publish:** use detected package manager for build command ([44694fb](https://github.com/SylphxAI/bump/commit/44694fb8eb5db9d94f10178af0ec681d04e6461e))
+
 ## 1.4.7 (2025-11-30)
 
 ### 🐛 Bug Fixes
