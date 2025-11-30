@@ -98,19 +98,38 @@ function generatePrBody(
 	lines.push('')
 
 	// Add changelog preview for each bump
+	// For large monorepos (>3 packages), collapse changelogs to avoid hitting GitHub's 65536 char limit
+	const shouldCollapse = bumps.length > 3
+
 	for (const bump of bumps) {
+		const hasBreaking = bump.commits.some((c) => c.breaking)
+		const breakingBadge = hasBreaking ? ' ⚠️' : ''
+		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+
 		if (bumps.length > 1) {
-			const hasBreaking = bump.commits.some((c) => c.breaking)
-			const breakingBadge = hasBreaking ? ' ⚠️' : ''
-			lines.push(
-				`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`
-			)
+			if (shouldCollapse) {
+				// Collapse each package's changelog
+				lines.push('<details>')
+				lines.push(
+					`<summary><strong>📦 ${bump.package}</strong> <code>${bump.currentVersion}</code> → <code>${bump.newVersion}</code>${breakingBadge}</summary>`
+				)
+				lines.push('')
+				lines.push(changelog)
+				lines.push('')
+				lines.push('</details>')
+				lines.push('')
+			} else {
+				lines.push(
+					`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`
+				)
+				lines.push('')
+				lines.push(changelog)
+				lines.push('')
+			}
+		} else {
+			lines.push(changelog)
 			lines.push('')
 		}
-
-		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
-		lines.push(changelog)
-		lines.push('')
 	}
 
 	lines.push('---')
@@ -436,11 +455,13 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Force push to overwrite any stale remote branch
 			await $`git push -f -u origin ${PR_BRANCH}`
 
-			// Truncate PR body if it exceeds GitHub's 65536 character limit
-			const MAX_BODY_LENGTH = 65000 // Leave some margin
+			// Last resort: truncate PR body if still exceeds GitHub's 65536 character limit
+			// This shouldn't happen with collapsed changelogs, but keep as safety net
+			const MAX_BODY_LENGTH = 65000
 			let finalBody = prBody
 			if (prBody.length > MAX_BODY_LENGTH) {
-				const truncateMsg = '\n\n---\n\n> ⚠️ Changelog truncated due to size limits. See individual package CHANGELOGs for full details.'
+				consola.warn(`PR body exceeds limit (${prBody.length} chars), truncating...`)
+				const truncateMsg = '\n\n---\n\n> ⚠️ **Changelog truncated** - See individual package CHANGELOGs for full details.'
 				finalBody = prBody.slice(0, MAX_BODY_LENGTH - truncateMsg.length) + truncateMsg
 			}
 
