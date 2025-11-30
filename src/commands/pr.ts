@@ -62,8 +62,9 @@ function generatePrBody(
 		lines.push('| Package | Current | New | Type |')
 		lines.push('|---------|---------|-----|------|')
 		for (const bump of bumps) {
+			const current = bump.releaseType === 'initial' ? '—' : bump.currentVersion
 			lines.push(
-				`| \`${bump.package}\` | ${bump.currentVersion} | **${bump.newVersion}** | ${bump.releaseType} |`
+				`| \`${bump.package}\` | ${current} | **${bump.newVersion}** | ${bump.releaseType} |`
 			)
 		}
 	}
@@ -106,13 +107,22 @@ function generatePrBody(
 		const hasBreaking = bump.commits.some((c) => c.breaking)
 		const breakingBadge = hasBreaking ? ' ⚠️' : ''
 		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+		// For initial releases, show "→ version" instead of "version → version"
+		const versionDisplay =
+			bump.releaseType === 'initial'
+				? `<code>${bump.newVersion}</code> (initial)`
+				: `<code>${bump.currentVersion}</code> → <code>${bump.newVersion}</code>`
+		const versionDisplayPlain =
+			bump.releaseType === 'initial'
+				? `\`${bump.newVersion}\` (initial)`
+				: `\`${bump.currentVersion}\` → \`${bump.newVersion}\``
 
 		if (bumps.length > 1) {
 			if (shouldCollapse) {
 				// Collapse each package's changelog
 				lines.push('<details>')
 				lines.push(
-					`<summary><strong>📦 ${bump.package}</strong> <code>${bump.currentVersion}</code> → <code>${bump.newVersion}</code>${breakingBadge}</summary>`
+					`<summary><strong>📦 ${bump.package}</strong> ${versionDisplay}${breakingBadge}</summary>`
 				)
 				lines.push('')
 				lines.push(changelog)
@@ -120,9 +130,7 @@ function generatePrBody(
 				lines.push('</details>')
 				lines.push('')
 			} else {
-				lines.push(
-					`### 📦 ${bump.package} \`${bump.currentVersion}\` → \`${bump.newVersion}\`${breakingBadge}`
-				)
+				lines.push(`### 📦 ${bump.package} ${versionDisplayPlain}${breakingBadge}`)
 				lines.push('')
 				lines.push(changelog)
 				lines.push('')
