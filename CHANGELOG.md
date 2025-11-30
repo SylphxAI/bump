@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.4 (2025-11-30)
+
+### ♻️ Refactoring
+
+- **pr:** collapse changelogs for large monorepos ([1e86ce8](https://github.com/SylphxAI/bump/commit/1e86ce8cb92fc528085072e9ec937167c4690b50))
+
 ## 1.4.3 (2025-11-30)
 
 ### 🐛 Bug Fixes
