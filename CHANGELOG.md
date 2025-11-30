@@ -1,5 +1,13 @@
 # @sylphx/bump
 
+## 1.4.12 (2025-11-30)
+
+Improve PR display for initial releases - show `0.1.0 (initial)` instead of confusing `0.1.0 → 0.1.0`
+
+### 🐛 Bug Fixes
+
+- **pr:** improve display for initial releases ([1f15192](https://github.com/SylphxAI/bump/commit/1f15192eb7cb991911806f37c4587a2d6938f1b7))
+
 ## 1.4.11 (2025-11-30)
 
 - Add comments documenting that bump does NOT build packages
