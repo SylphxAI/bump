@@ -199,6 +199,11 @@ export function filterCommitsForPackage(
 	gitRoot?: string
 ): ConventionalCommit[] {
 	return commits.filter((c) => {
+		// Skip commits that ONLY touch .bump/ files (bump file content is the changelog, not the commit)
+		if (c.files.length > 0 && c.files.every((f) => f.startsWith('.bump/'))) {
+			return false
+		}
+
 		// If we have file information and package path, use file-based detection
 		if (c.files.length > 0 && packagePath) {
 			const hasMatchingFile = c.files.some((file) => fileMatchesPackage(file, packagePath, gitRoot))
