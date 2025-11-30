@@ -71,10 +71,10 @@ function generatePrBody(
 
 	// Statistics
 	const totalCommits = bumps.reduce((acc, b) => acc + b.commits.length, 0)
-	const breakingChanges = bumps.reduce(
-		(acc, b) => acc + b.commits.filter((c) => c.breaking).length,
-		0
-	)
+	// Initial releases can't have breaking changes - no one is using the package yet
+	const breakingChanges = bumps
+		.filter((b) => b.releaseType !== 'initial')
+		.reduce((acc, b) => acc + b.commits.filter((c) => c.breaking).length, 0)
 
 	lines.push('')
 	lines.push('<details>')
@@ -104,7 +104,8 @@ function generatePrBody(
 	const shouldCollapse = bumps.length > 3
 
 	for (const bump of bumps) {
-		const hasBreaking = bump.commits.some((c) => c.breaking)
+		// Initial releases can't have breaking changes - no one is using the package yet
+		const hasBreaking = bump.releaseType !== 'initial' && bump.commits.some((c) => c.breaking)
 		const breakingBadge = hasBreaking ? ' ⚠️' : ''
 		const changelog = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
 		// For initial releases, show "→ version" instead of "version → version"
