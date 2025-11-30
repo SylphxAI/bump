@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.3 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **pr:** truncate body for GitHub limit and handle stale PR branches ([20ca5ab](https://github.com/SylphxAI/bump/commit/20ca5abf59c3e7d7a3c5cfd052495ce2af209eaa))
+
 ## 1.4.2 (2025-11-30)
 
 ### 🐛 Bug Fixes
