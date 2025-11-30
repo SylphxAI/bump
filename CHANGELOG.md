@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.5 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **pr:** filter commits by package path in monorepo ([d2056af](https://github.com/SylphxAI/bump/commit/d2056af78cb94aece97bdd41ac1cf6912b547f9c))
+
 ## 1.4.4 (2025-11-30)
 
 ### ♻️ Refactoring
