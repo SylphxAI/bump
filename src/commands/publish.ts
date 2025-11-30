@@ -263,8 +263,8 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 		consola.info(`  Publishing ${pc.cyan(bump.package)}@${pc.green(bump.newVersion)}...`)
 
-		// Use npm publish with --ignore-scripts (CI should have built already)
-		const publishResult = await $({ cwd: pkgPath })`npm publish --access public --ignore-scripts`.nothrow()
+		// Use npm publish (lifecycle scripts like prepack will run)
+		const publishResult = await $({ cwd: pkgPath })`npm publish --access public`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
 			const stderr = publishResult.stderr
@@ -460,8 +460,8 @@ async function runPublishFromReleaseCommit(
 
 	for (const pkg of packagesToPublish) {
 		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
-		// Use --ignore-scripts to avoid running build scripts (CI should have built already)
-		const publishResult = await $({ cwd: pkg.path })`npm publish --access public --ignore-scripts`.nothrow()
+		// Use npm publish (lifecycle scripts like prepack will run)
+		const publishResult = await $({ cwd: pkg.path })`npm publish --access public`.nothrow()
 
 		if (publishResult.exitCode !== 0) {
 			const stderr = publishResult.stderr
