@@ -402,8 +402,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Force push needed because we reset the PR branch to baseBranch
 			await $`git push -f origin ${PR_BRANCH}`
 
-			// Update PR title/body
-			await $`gh pr edit ${existingPr.number} --title ${prTitle} --body ${prBody}`
+			// Update PR title/body (use stdin to avoid E2BIG for large bodies)
+			const editProc = $`gh pr edit ${existingPr.number} --title ${prTitle} --body-file -`
+			editProc.stdin.write(prBody)
+			editProc.stdin.end()
+			await editProc
 
 			// Mark PR ready (allow merge again)
 			await $`gh pr ready ${existingPr.number}`.quiet().nothrow()
@@ -433,11 +436,14 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 
 			// Create PR (or get existing if branch already has PR)
 			// Try to create PR first, if it fails (already exists), view the existing one
+			// Use stdin to avoid E2BIG for large bodies
 			let prUrl: string
-			const createResult =
-				await $`gh pr create --title ${prTitle} --body ${prBody} --base ${baseBranch}`
-					.quiet()
-					.nothrow()
+			const createProc = $`gh pr create --title ${prTitle} --body-file - --base ${baseBranch}`
+				.quiet()
+				.nothrow()
+			createProc.stdin.write(prBody)
+			createProc.stdin.end()
+			const createResult = await createProc
 			if (createResult.exitCode === 0) {
 				prUrl = createResult.stdout.trim()
 			} else {
