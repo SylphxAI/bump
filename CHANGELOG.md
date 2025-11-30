@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.7 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **publish:** use detected package manager for build command ([44694fb](https://github.com/SylphxAI/bump/commit/44694fb8eb5db9d94f10178af0ec681d04e6461e))
+
 ## 1.4.6 (2025-11-30)
 
 ### 🐛 Bug Fixes
