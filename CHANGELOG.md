@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.1 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **pr:** use stdin for PR body to avoid E2BIG error on large monorepos ([d18767a](https://github.com/SylphxAI/bump/commit/d18767a16793615164ae534df12748771ce20203))
+
 ## 1.4.0 (2025-11-29)
 
 ### ✨ Features
