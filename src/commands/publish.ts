@@ -27,7 +27,7 @@ import {
 import type { VersionBump } from '../types.ts'
 import { getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
-import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
+import { detectPM, getInstallCommand, getInstallCommandCI, getRunCommand } from '../utils/pm.ts'
 
 export interface PublishOptions {
 	cwd?: string
@@ -420,7 +420,8 @@ async function runPublishFromReleaseCommit(
 	// This ensures builds can use workspace: protocol for local resolution
 	// Must build from root to handle inter-package dependencies correctly
 	consola.start('Building packages...')
-	const buildResult = await $({ cwd })`npm run build --if-present`.nothrow()
+	const runCmd = getRunCommand(pm)
+	const buildResult = await $({ cwd })`${runCmd} build --if-present`.nothrow()
 	if (buildResult.exitCode !== 0) {
 		consola.error('  Build failed')
 		consola.error(buildResult.stderr)

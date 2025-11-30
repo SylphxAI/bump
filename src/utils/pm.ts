@@ -62,6 +62,22 @@ export function getInstallCommandCI(pm: PackageManager): string[] {
 }
 
 /**
+ * Get run command for scripts based on package manager
+ */
+export function getRunCommand(pm: PackageManager): string {
+	switch (pm) {
+		case 'bun':
+			return 'bun run'
+		case 'pnpm':
+			return 'pnpm run'
+		case 'yarn':
+			return 'yarn'
+		default:
+			return 'npm run'
+	}
+}
+
+/**
  * Run install with detected package manager
  * Tries frozen lockfile first (CI mode), falls back to regular install
  */
