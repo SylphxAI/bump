@@ -1,4 +1,6 @@
 import consola from 'consola'
+import { unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { $ } from 'zx'
 
 // Configure zx
@@ -434,28 +436,41 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Force push to overwrite any stale remote branch
 			await $`git push -f -u origin ${PR_BRANCH}`
 
-			// Create PR (or get existing if branch already has PR)
-			// Try to create PR first, if it fails (already exists), view the existing one
-			// Use stdin to avoid E2BIG for large bodies
+			// Create PR using temp file to avoid E2BIG for large bodies
 			let prUrl: string
-			const createProc = $`gh pr create --title ${prTitle} --body-file - --base ${baseBranch}`
-				.quiet()
-				.nothrow()
-			createProc.stdin.write(prBody)
-			createProc.stdin.end()
-			const createResult = await createProc
-			if (createResult.exitCode === 0) {
-				prUrl = createResult.stdout.trim()
-			} else {
-				// PR might already exist, try to view it
-				const viewResult = await $`gh pr view ${PR_BRANCH} --json url -q .url`.quiet().nothrow()
-				if (viewResult.exitCode === 0) {
-					prUrl = viewResult.stdout.trim()
+			const tmpFile = join(cwd, '.bump-pr-body.md')
+			writeFileSync(tmpFile, prBody)
+			try {
+				const createResult = await $`gh pr create --title ${prTitle} --body-file ${tmpFile} --base ${baseBranch}`
+					.quiet()
+					.nothrow()
+				if (createResult.exitCode === 0) {
+					prUrl = createResult.stdout.trim()
 				} else {
-					// Neither worked - throw with context
-					throw new Error(
-						`Failed to create or find PR. Create error: ${createResult.stderr.toString()}`
-					)
+					// PR creation failed - check if there's an OPEN PR for this branch
+					const viewResult = await $`gh pr view ${PR_BRANCH} --json url,state`.quiet().nothrow()
+					if (viewResult.exitCode === 0) {
+						const prInfo = JSON.parse(viewResult.stdout)
+						if (prInfo.state === 'OPEN') {
+							prUrl = prInfo.url
+						} else {
+							// PR exists but is merged/closed - throw with context
+							throw new Error(
+								`Failed to create PR. Branch has a ${prInfo.state} PR. Create error: ${createResult.stderr.toString()}`
+							)
+						}
+					} else {
+						throw new Error(
+							`Failed to create or find PR. Create error: ${createResult.stderr.toString()}`
+						)
+					}
+				}
+			} finally {
+				// Clean up temp file
+				try {
+					unlinkSync(tmpFile)
+				} catch {
+					// Ignore cleanup errors
 				}
 			}
 
