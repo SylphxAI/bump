@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.6 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **publish:** add cwd to install commands ([bb5431a](https://github.com/SylphxAI/bump/commit/bb5431a0d6e3134eabe335e4c671a9bf4d069f44))
+
 ## 1.4.5 (2025-11-30)
 
 ### 🐛 Bug Fixes
