@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.9 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **publish:** check build script exists instead of using --if-present ([54abed1](https://github.com/SylphxAI/bump/commit/54abed14b4312c3ecb8ab029cebf88ace8b8d8d8))
+
 ## 1.4.8 (2025-11-30)
 
 ### 🐛 Bug Fixes
