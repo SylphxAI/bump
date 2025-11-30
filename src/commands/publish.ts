@@ -27,7 +27,7 @@ import {
 import type { VersionBump } from '../types.ts'
 import { getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
-import { detectPM, getInstallCommand, getInstallCommandCI, getRunCommand } from '../utils/pm.ts'
+import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
 
 export interface PublishOptions {
 	cwd?: string
@@ -416,26 +416,7 @@ async function runPublishFromReleaseCommit(
 		}
 	}
 
-	// Pre-build ALL packages BEFORE resolving workspace deps
-	// This ensures builds can use workspace: protocol for local resolution
-	// Must build from root to handle inter-package dependencies correctly
-	consola.start('Building packages...')
-	const rootPkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'))
-	if (rootPkg.scripts?.build) {
-		const runCmd = getRunCommand(pm)
-		const buildResult = await $({ cwd })`${runCmd} build`.nothrow()
-		if (buildResult.exitCode !== 0) {
-			consola.error('  Build failed')
-			consola.error(buildResult.stderr)
-			process.exit(1)
-		}
-		consola.info('  All packages built successfully')
-	} else {
-		consola.info('  No build script found, skipping')
-	}
-
 	// Resolve workspace deps for publish (temporary)
-	// Now safe to resolve since all builds are complete
 	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
 	if (packages.length > 0) {
 		workspaceDepsSnapshot = saveWorkspaceDeps(cwd, packages)
