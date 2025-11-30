@@ -420,14 +420,19 @@ async function runPublishFromReleaseCommit(
 	// This ensures builds can use workspace: protocol for local resolution
 	// Must build from root to handle inter-package dependencies correctly
 	consola.start('Building packages...')
-	const runCmd = getRunCommand(pm)
-	const buildResult = await $({ cwd })`${runCmd} build --if-present`.nothrow()
-	if (buildResult.exitCode !== 0) {
-		consola.error('  Build failed')
-		consola.error(buildResult.stderr)
-		process.exit(1)
+	const rootPkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'))
+	if (rootPkg.scripts?.build) {
+		const runCmd = getRunCommand(pm)
+		const buildResult = await $({ cwd })`${runCmd} build`.nothrow()
+		if (buildResult.exitCode !== 0) {
+			consola.error('  Build failed')
+			consola.error(buildResult.stderr)
+			process.exit(1)
+		}
+		consola.info('  All packages built successfully')
+	} else {
+		consola.info('  No build script found, skipping')
 	}
-	consola.info('  All packages built successfully')
 
 	// Resolve workspace deps for publish (temporary)
 	// Now safe to resolve since all builds are complete
