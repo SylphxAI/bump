@@ -436,10 +436,18 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Force push to overwrite any stale remote branch
 			await $`git push -f -u origin ${PR_BRANCH}`
 
+			// Truncate PR body if it exceeds GitHub's 65536 character limit
+			const MAX_BODY_LENGTH = 65000 // Leave some margin
+			let finalBody = prBody
+			if (prBody.length > MAX_BODY_LENGTH) {
+				const truncateMsg = '\n\n---\n\n> ⚠️ Changelog truncated due to size limits. See individual package CHANGELOGs for full details.'
+				finalBody = prBody.slice(0, MAX_BODY_LENGTH - truncateMsg.length) + truncateMsg
+			}
+
 			// Create PR using temp file to avoid E2BIG for large bodies
 			let prUrl: string
 			const tmpFile = join(cwd, '.bump-pr-body.md')
-			writeFileSync(tmpFile, prBody)
+			writeFileSync(tmpFile, finalBody)
 			try {
 				const createResult = await $`gh pr create --title ${prTitle} --body-file ${tmpFile} --base ${baseBranch}`
 					.quiet()
@@ -447,17 +455,28 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				if (createResult.exitCode === 0) {
 					prUrl = createResult.stdout.trim()
 				} else {
-					// PR creation failed - check if there's an OPEN PR for this branch
+					// Check if there's a stale PR (merged/closed) blocking new PR creation
 					const viewResult = await $`gh pr view ${PR_BRANCH} --json url,state`.quiet().nothrow()
 					if (viewResult.exitCode === 0) {
 						const prInfo = JSON.parse(viewResult.stdout)
 						if (prInfo.state === 'OPEN') {
+							// There's an open PR - use it
 							prUrl = prInfo.url
 						} else {
-							// PR exists but is merged/closed - throw with context
-							throw new Error(
-								`Failed to create PR. Branch has a ${prInfo.state} PR. Create error: ${createResult.stderr.toString()}`
-							)
+							// PR is merged/closed - the branch still exists on remote
+							// This shouldn't happen since we force-pushed, but handle it
+							consola.warn('Stale PR branch detected, retrying...')
+							// Delete remote branch and retry
+							await $`git push origin --delete ${PR_BRANCH}`.quiet().nothrow()
+							await $`git push -f -u origin ${PR_BRANCH}`
+							const retryResult = await $`gh pr create --title ${prTitle} --body-file ${tmpFile} --base ${baseBranch}`
+								.quiet()
+								.nothrow()
+							if (retryResult.exitCode === 0) {
+								prUrl = retryResult.stdout.trim()
+							} else {
+								throw new Error(`Failed to create PR after retry: ${retryResult.stderr.toString()}`)
+							}
 						}
 					} else {
 						throw new Error(
