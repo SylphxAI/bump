@@ -11,6 +11,7 @@ import {
 	calculateCascadeBumps,
 	consumeBumpFiles,
 	discoverPackages,
+	filterCommitsForPackage,
 	generateChangelogEntry,
 	getPackageReleaseInfos,
 	getSinglePackage,
@@ -209,8 +210,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Skip private packages
 			if (pkg.private) continue
 
+			// Filter commits to only those affecting this package
+			const pkgCommits = filterCommitsForPackage(commits, pkg.name, pkg.path, gitRoot)
+
 			// Check if there are changes to process (commits or bump files)
-			if (!hasChangesToProcess(commits, bumpFiles)) {
+			if (!hasChangesToProcess(pkgCommits, bumpFiles)) {
 				continue
 			}
 
@@ -222,13 +226,13 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 					currentVersion: pkg.version,
 					newVersion: pkg.version,
 					releaseType: 'initial',
-					commits,
+					commits: pkgCommits,
 				})
 				continue
 			}
 
 			// Calculate bump with bump file support
-			const bump = calculateBumpWithBumpFiles(pkg, commits, bumpFiles, config)
+			const bump = calculateBumpWithBumpFiles(pkg, pkgCommits, bumpFiles, config)
 			if (bump) {
 				bumps.push(bump)
 			}
