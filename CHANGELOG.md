@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.2 (2025-11-30)
+
+### 🐛 Bug Fixes
+
+- **pr:** use temp file for PR body and check PR state ([464d1e4](https://github.com/SylphxAI/bump/commit/464d1e42a0b94d3556380afe9e084fa5dc31e70b))
+
 ## 1.4.1 (2025-11-30)
 
 ### 🐛 Bug Fixes
