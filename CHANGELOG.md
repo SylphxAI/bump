@@ -1,5 +1,13 @@
 # @sylphx/bump
 
+## 1.4.13 (2025-11-30)
+
+Initial releases no longer show breaking change badges - you can't break what no one is using yet.
+
+### 🐛 Bug Fixes
+
+- **pr:** initial releases should not show breaking badge ([0bd77b8](https://github.com/SylphxAI/bump/commit/0bd77b8139c1da5c0b8219003c03f0c83482c2b9))
+
 ## 1.4.12 (2025-11-30)
 
 Improve PR display for initial releases - show `0.1.0 (initial)` instead of confusing `0.1.0 → 0.1.0`
