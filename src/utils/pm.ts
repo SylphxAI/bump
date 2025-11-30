@@ -20,7 +20,7 @@ export function detectPM(cwd: string = process.cwd()): PackageManager {
 	}
 
 	// 2. Lock files
-	if (existsSync(join(cwd, 'bun.lockb'))) return 'bun'
+	if (existsSync(join(cwd, 'bun.lockb')) || existsSync(join(cwd, 'bun.lock'))) return 'bun'
 	if (existsSync(join(cwd, 'pnpm-lock.yaml'))) return 'pnpm'
 	if (existsSync(join(cwd, 'yarn.lock'))) return 'yarn'
 	if (existsSync(join(cwd, 'package-lock.json'))) return 'npm'
@@ -63,17 +63,18 @@ export function getInstallCommandCI(pm: PackageManager): string[] {
 
 /**
  * Get run command for scripts based on package manager
+ * Returns array for use with zx template literals
  */
-export function getRunCommand(pm: PackageManager): string {
+export function getRunCommand(pm: PackageManager): string[] {
 	switch (pm) {
 		case 'bun':
-			return 'bun run'
+			return ['bun', 'run']
 		case 'pnpm':
-			return 'pnpm run'
+			return ['pnpm', 'run']
 		case 'yarn':
-			return 'yarn'
+			return ['yarn']
 		default:
-			return 'npm run'
+			return ['npm', 'run']
 	}
 }
 
