@@ -1,5 +1,19 @@
 # @sylphx/bump
 
+## 1.4.11 (2025-11-30)
+
+- Add comments documenting that bump does NOT build packages
+- Filter out commits that only touch .bump/ files from changelog
+
+### 🐛 Bug Fixes
+
+- **publish:** allow npm lifecycle scripts to run (revert --ignore-scripts) ([0c382f3](https://github.com/SylphxAI/bump/commit/0c382f33bee48d014791cbf05a1fedca0e8986f1))
+- **commits:** filter out commits that only touch .bump/ files ([9c5f847](https://github.com/SylphxAI/bump/commit/9c5f8476ab62293d90e74634c9de98bf134e19a5))
+
+### 📚 Documentation
+
+- **publish:** add comments clarifying bump does not build ([069aa55](https://github.com/SylphxAI/bump/commit/069aa55b8ffe84c6d861fc3751f8749f93af6b2d))
+
 ## 1.4.10 (2025-11-30)
 
 ### ♻️ Refactoring
