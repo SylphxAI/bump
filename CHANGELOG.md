@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.4.10 (2025-11-30)
+
+### ♻️ Refactoring
+
+- **publish:** remove build step - not bump's responsibility ([db31214](https://github.com/SylphxAI/bump/commit/db3121462a7dc9f8d9b74e1c193bd48844210363))
+
 ## 1.4.9 (2025-11-30)
 
 ### 🐛 Bug Fixes
