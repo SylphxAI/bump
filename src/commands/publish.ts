@@ -215,11 +215,11 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
-	let installResult = await $`${ciCmd}`.nothrow()
+	let installResult = await $({ cwd })`${ciCmd}`.nothrow()
 	if (installResult.exitCode !== 0) {
 		// Fall back to regular install
 		const cmd = getInstallCommand(pm)
-		installResult = await $`${cmd}`.nothrow()
+		installResult = await $({ cwd })`${cmd}`.nothrow()
 		if (installResult.exitCode !== 0) {
 			consola.warn('Install had issues, continuing...')
 		}
@@ -407,10 +407,10 @@ async function runPublishFromReleaseCommit(
 	consola.start('Installing dependencies...')
 	const pm = detectPM(cwd)
 	const ciCmd = getInstallCommandCI(pm)
-	let installResult = await $`${ciCmd}`.nothrow()
+	let installResult = await $({ cwd })`${ciCmd}`.nothrow()
 	if (installResult.exitCode !== 0) {
 		const cmd = getInstallCommand(pm)
-		installResult = await $`${cmd}`.nothrow()
+		installResult = await $({ cwd })`${cmd}`.nothrow()
 		if (installResult.exitCode !== 0) {
 			consola.warn('Install had issues, continuing...')
 		}
