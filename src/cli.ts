@@ -7,6 +7,7 @@ import { runInit } from './commands/init.ts'
 import { runPr } from './commands/pr.ts'
 import { runPublish } from './commands/publish.ts'
 import { runStatus } from './commands/status.ts'
+import { getGitRoot } from './utils/git.ts'
 
 const bump = defineCommand({
 	meta: {
@@ -60,9 +61,12 @@ const bump = defineCommand({
 				},
 			},
 			run: async ({ args }) => {
+				// Always use git root as cwd (bump files must be at repo root)
+				const cwd = await getGitRoot()
+
 				// If no args provided (and no --all), run interactive mode
 				if (!args.release && !args.alpha && !args.beta && !args.rc && !args.all) {
-					await runAddInteractive()
+					await runAddInteractive({ cwd })
 					return
 				}
 
@@ -91,6 +95,7 @@ const bump = defineCommand({
 					prerelease,
 					packages,
 					message: args.message as string | undefined,
+					cwd,
 				})
 			},
 		}),
