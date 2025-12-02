@@ -1,5 +1,13 @@
 # @sylphx/bump
 
+## 1.5.1 (2025-12-02)
+
+fix: support multiple -p flags and add --all option
+
+### 🐛 Bug Fixes
+
+- **cli:** support multiple -p flags and add --all option ([cb21b96](https://github.com/SylphxAI/bump/commit/cb21b96232974293cf7c42b806da1bc7d7912e57))
+
 ## 1.5.0 (2025-12-02)
 
 ### Refactored publish command for reliability and safety
