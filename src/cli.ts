@@ -48,6 +48,11 @@ const bump = defineCommand({
 					description: 'Target package (can be used multiple times)',
 					alias: 'p',
 				},
+				all: {
+					type: 'boolean',
+					description: 'Target all packages (monorepo only)',
+					alias: 'a',
+				},
 				message: {
 					type: 'string',
 					description: 'Changelog message',
@@ -55,8 +60,8 @@ const bump = defineCommand({
 				},
 			},
 			run: async ({ args }) => {
-				// If no args provided, run interactive mode
-				if (!args.release && !args.alpha && !args.beta && !args.rc) {
+				// If no args provided (and no --all), run interactive mode
+				if (!args.release && !args.alpha && !args.beta && !args.rc && !args.all) {
 					await runAddInteractive()
 					return
 				}
@@ -67,8 +72,19 @@ const bump = defineCommand({
 				if (args.beta) prerelease = 'beta'
 				if (args.rc) prerelease = 'rc'
 
-				// Parse packages (support multiple -p flags)
-				const packages = args.package ? [args.package as string] : undefined
+				// Parse packages (support multiple -p flags and comma-separated values)
+				let packages: string[] | undefined
+				if (args.package) {
+					const pkgArg = args.package
+					// Handle array (multiple -p flags) or string (single -p or comma-separated)
+					if (Array.isArray(pkgArg)) {
+						packages = pkgArg.flatMap((p) => p.split(',').map((s) => s.trim()))
+					} else {
+						packages = (pkgArg as string).split(',').map((s) => s.trim())
+					}
+					packages = packages.filter(Boolean)
+					if (packages.length === 0) packages = undefined
+				}
 
 				await runAdd({
 					release: (args.release as string) || 'patch',
