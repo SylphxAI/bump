@@ -1,5 +1,13 @@
 # @sylphx/bump
 
+## 1.5.2 (2025-12-02)
+
+fix: always use git root for bump file location
+
+### 🐛 Bug Fixes
+
+- **cli:** always use git root for bump file location ([91a32e7](https://github.com/SylphxAI/bump/commit/91a32e7a77fe1a4730673c60879668056e4325a8))
+
 ## 1.5.1 (2025-12-02)
 
 fix: support multiple -p flags and add --all option
