@@ -63,6 +63,26 @@ export class PublishError extends BumpError {
 }
 
 /**
+ * Validation errors (invalid input, missing requirements)
+ */
+export class ValidationError extends BumpError {
+	constructor(message: string, suggestion?: string) {
+		super(message, 'VALIDATION_ERROR', suggestion)
+		this.name = 'ValidationError'
+	}
+}
+
+/**
+ * CI environment errors
+ */
+export class CIError extends BumpError {
+	constructor(message: string, suggestion?: string) {
+		super(message, 'CI_ERROR', suggestion)
+		this.name = 'CIError'
+	}
+}
+
+/**
  * Format error message with suggestion
  */
 export function formatError(error: unknown): string {

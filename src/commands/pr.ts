@@ -28,6 +28,7 @@ import {
 	writeBumpState,
 } from '../core/index.ts'
 import type { VersionBump } from '../types.ts'
+import { CIError } from '../utils/errors.ts'
 import { getCurrentBranch, getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'
 
 export interface PrOptions {
@@ -183,15 +184,18 @@ async function findReleasePr(): Promise<{ number: number; headRefName: string } 
 export async function runPr(options: PrOptions = {}): Promise<void> {
 	// Block local execution - bump pr only works with CI workflow
 	if (!process.env.CI && !process.env.GITHUB_ACTIONS) {
-		consola.error('bump pr should only be run in CI environment')
-		consola.info('Push to main and let GitHub Actions create the release PR')
-		process.exit(1)
+		throw new CIError(
+			'bump pr should only be run in CI environment',
+			'Push to main and let GitHub Actions create the release PR'
+		)
 	}
 
 	// Check for GitHub token
 	if (!process.env.GITHUB_TOKEN && !process.env.GH_TOKEN) {
-		consola.error('GITHUB_TOKEN or GH_TOKEN environment variable is required')
-		process.exit(1)
+		throw new CIError(
+			'GITHUB_TOKEN or GH_TOKEN environment variable is required',
+			'Set GITHUB_TOKEN in your CI workflow'
+		)
 	}
 
 	const cwd = options.cwd ?? process.cwd()

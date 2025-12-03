@@ -15,6 +15,7 @@ import {
 	restoreWorkspaceDeps,
 	saveWorkspaceDeps,
 } from '../core/index.ts'
+import { PublishError, ValidationError } from '../utils/errors.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
 import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
 
@@ -275,16 +276,13 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		}
 
 		if (allErrors.size > 0) {
-			consola.error('Package validation failed:\n')
-			for (const [name, errors] of allErrors) {
-				consola.error(`${pc.cyan(name)}:`)
-				for (const e of errors) {
-					consola.error(`  ${pc.red('✗')} ${e}`)
-				}
-				consola.log('')
-			}
-			consola.info(`${pc.yellow('→')} Did you forget to build? Run your build command before bump publish.`)
-			process.exit(1)
+			const errorList = Array.from(allErrors.entries())
+				.map(([name, errors]) => `${name}:\n${errors.map((e) => `  - ${e}`).join('\n')}`)
+				.join('\n\n')
+			throw new ValidationError(
+				`Package validation failed:\n\n${errorList}`,
+				'Did you forget to build? Run your build command before bump publish.'
+			)
 		}
 		consola.success('All packages validated')
 	}
@@ -420,9 +418,10 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	}
 
 	if (!allSuccess) {
-		consola.error('Publish failed - some packages were not published')
-		consola.info('Fix the issue and re-run. Already published packages will be skipped.')
-		process.exit(1)
+		throw new PublishError(
+			'Publish failed - some packages were not published',
+			'Fix the issue and re-run. Already published packages will be skipped.'
+		)
 	}
 
 	consola.success('Publish completed!')

@@ -7,6 +7,7 @@ import { runInit } from './commands/init.ts'
 import { runPr } from './commands/pr.ts'
 import { runPublish } from './commands/publish.ts'
 import { runStatus } from './commands/status.ts'
+import { BumpError } from './utils/errors.ts'
 import { getGitRoot } from './utils/git.ts'
 
 const bump = defineCommand({
@@ -186,4 +187,16 @@ const bump = defineCommand({
 	},
 })
 
-runMain(bump)
+runMain(bump).catch((error: unknown) => {
+	if (error instanceof BumpError) {
+		consola.error(`[${error.code}] ${error.message}`)
+		if (error.suggestion) {
+			consola.info(`💡 ${error.suggestion}`)
+		}
+	} else if (error instanceof Error) {
+		consola.error(error.message)
+	} else {
+		consola.error(String(error))
+	}
+	process.exit(1)
+})

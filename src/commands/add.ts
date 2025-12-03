@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { getBumpDir, isExplicitVersion } from '../core/bumpfile.ts'
 import { discoverPackages, isMonorepo } from '../core/packages.ts'
 import { loadConfig } from '../core/config.ts'
+import { ValidationError } from '../utils/errors.ts'
 
 export interface AddOptions {
 	/** Release type or explicit version */
@@ -46,9 +47,10 @@ export async function runAdd(options: AddOptions = {}): Promise<string> {
 	// Validate release
 	const validReleaseTypes = ['patch', 'minor', 'major']
 	if (!validReleaseTypes.includes(release) && !isExplicitVersion(release)) {
-		consola.error(`Invalid release type: ${release}`)
-		consola.info('Valid types: patch, minor, major, or explicit version (e.g., "1.2.3")')
-		process.exit(1)
+		throw new ValidationError(
+			`Invalid release type: ${release}`,
+			'Valid types: patch, minor, major, or explicit version (e.g., "1.2.3")'
+		)
 	}
 
 	// Build frontmatter
