@@ -20,8 +20,16 @@
  * Custom changelog content here.
  */
 
-import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
+import * as semver from 'semver'
 import type { ReleaseType } from '../types.ts'
 
 export interface BumpFile {
@@ -94,7 +102,6 @@ export function readBumpState(cwd: string): BumpState {
 export function writeBumpState(cwd: string, state: BumpState): void {
 	const bumpDir = getBumpDir(cwd)
 	if (!existsSync(bumpDir)) {
-		const { mkdirSync } = require('node:fs')
 		mkdirSync(bumpDir, { recursive: true })
 	}
 	const statePath = getStateFilePath(cwd)
@@ -285,7 +292,6 @@ export function getHighestReleaseType(bumpFiles: BumpFile[]): ReleaseType | null
  * Returns the highest explicit version if multiple exist
  */
 export function getExplicitVersion(bumpFiles: BumpFile[]): string | null {
-	const semver = require('semver')
 	let highest: string | null = null
 
 	for (const bf of bumpFiles) {
