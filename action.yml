@@ -119,6 +119,12 @@ runs:
 
         # Publish mode - recalculate bumps and publish (only after PR merge)
         if [ "$MODE" = "publish" ]; then
+          # Build before publishing to ensure dist files exist
+          if [ -f "package.json" ] && grep -q '"build"' package.json; then
+            echo "Building before publish..."
+            bun run build
+          fi
+
           args="publish"
           [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
 
