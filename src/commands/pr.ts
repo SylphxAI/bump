@@ -40,6 +40,12 @@ export interface PrOptions {
 const PR_BRANCH = 'bump/release'
 const PR_TITLE_PREFIX = 'chore(release):'
 
+/** GitHub's PR body character limit is 65536, use 65000 as safety buffer */
+const GITHUB_PR_BODY_LIMIT = 65000
+
+/** Collapse changelogs when more than this many packages to avoid hitting limit */
+const COLLAPSE_THRESHOLD = 3
+
 /**
  * Generate PR body with release information
  */
@@ -102,8 +108,8 @@ function generatePrBody(
 	lines.push('')
 
 	// Add changelog preview for each bump
-	// For large monorepos (>3 packages), collapse changelogs to avoid hitting GitHub's 65536 char limit
-	const shouldCollapse = bumps.length > 3
+	// For large monorepos, collapse changelogs to avoid hitting GitHub's limit
+	const shouldCollapse = bumps.length > COLLAPSE_THRESHOLD
 
 	for (const bump of bumps) {
 		// Initial releases can't have breaking changes - no one is using the package yet
@@ -461,14 +467,13 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			// Force push to overwrite any stale remote branch
 			await $`git push -f -u origin ${PR_BRANCH}`
 
-			// Last resort: truncate PR body if still exceeds GitHub's 65536 character limit
+			// Last resort: truncate PR body if still exceeds GitHub's limit
 			// This shouldn't happen with collapsed changelogs, but keep as safety net
-			const MAX_BODY_LENGTH = 65000
 			let finalBody = prBody
-			if (prBody.length > MAX_BODY_LENGTH) {
+			if (prBody.length > GITHUB_PR_BODY_LIMIT) {
 				consola.warn(`PR body exceeds limit (${prBody.length} chars), truncating...`)
 				const truncateMsg = '\n\n---\n\n> ⚠️ **Changelog truncated** - See individual package CHANGELOGs for full details.'
-				finalBody = prBody.slice(0, MAX_BODY_LENGTH - truncateMsg.length) + truncateMsg
+				finalBody = prBody.slice(0, GITHUB_PR_BODY_LIMIT - truncateMsg.length) + truncateMsg
 			}
 
 			// Create PR using temp file to avoid E2BIG for large bodies
