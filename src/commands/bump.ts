@@ -5,6 +5,7 @@ import {
 	type MonorepoBumpContext,
 	calculateMonorepoBumps,
 	calculateSingleBump,
+	compareLocalVsNpm,
 	createInitialBump,
 	discoverPackages,
 	formatVersionTag,
@@ -85,8 +86,10 @@ async function analyzeMonorepoPackages(
 		const baseline = baselineTag ?? 'no previous release'
 		consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 
+		const comparison = compareLocalVsNpm(pkg.version, npmVersion)
+
 		// First release
-		if (!npmVersion) {
+		if (comparison === 'not_published') {
 			if (commits.length === 0) continue
 			const bump = createInitialBump(pkg, commits)
 			consola.info(`  ${pc.dim('→')} First release: ${bump.newVersion}`)
@@ -95,12 +98,11 @@ async function analyzeMonorepoPackages(
 		}
 
 		// Local > npm: already bumped, just publish
-		const semver = await import('semver')
-		if (semver.default.gt(pkg.version, npmVersion)) {
+		if (comparison === 'local_ahead') {
 			consola.info(`  ${pc.dim('→')} Already bumped: ${npmVersion} → ${pkg.version}`)
 			alreadyBumped.push({
 				package: pkg.name,
-				currentVersion: npmVersion,
+				currentVersion: npmVersion!,
 				newVersion: pkg.version,
 				releaseType: 'manual',
 				commits,
@@ -109,7 +111,7 @@ async function analyzeMonorepoPackages(
 		}
 
 		// Local < npm: something is wrong, skip
-		if (semver.default.lt(pkg.version, npmVersion)) {
+		if (comparison === 'npm_ahead') {
 			consola.warn(`  ${pc.dim('→')} Skipping: local ${pkg.version} < npm ${npmVersion}`)
 			continue
 		}
@@ -173,9 +175,10 @@ async function analyzeSinglePackage(
 	}
 
 	let bumps: VersionBump[] = []
+	const comparison = compareLocalVsNpm(pkg.version, npmVersion)
 
 	// First release
-	if (!npmVersion) {
+	if (comparison === 'not_published') {
 		if (commits.length > 0) {
 			const bump = createInitialBump(pkg, commits)
 			consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
@@ -184,21 +187,19 @@ async function analyzeSinglePackage(
 		return { bumps, allCommits: commits, pkg }
 	}
 
-	// Compare versions
-	const semver = await import('semver')
-	if (semver.default.gt(pkg.version, npmVersion)) {
-		// Local > npm: already bumped
+	// Local > npm: already bumped
+	if (comparison === 'local_ahead') {
 		consola.info(`Already bumped: ${npmVersion} → ${pkg.version}`)
 		bumps = [
 			{
 				package: pkg.name,
-				currentVersion: npmVersion,
+				currentVersion: npmVersion!,
 				newVersion: pkg.version,
 				releaseType: 'manual',
 				commits,
 			},
 		]
-	} else if (semver.default.lt(pkg.version, npmVersion)) {
+	} else if (comparison === 'npm_ahead') {
 		// Local < npm: something is wrong
 		consola.warn(`Skipping: local ${pkg.version} < npm ${npmVersion}`)
 	} else if (commits.length > 0) {

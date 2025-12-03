@@ -109,6 +109,35 @@ export function compareVersions(a: string, b: string): number {
 }
 
 /**
+ * Result of comparing local version vs npm published version
+ */
+export type VersionComparisonResult =
+	| 'local_ahead'    // local > npm: already bumped, just needs publish
+	| 'npm_ahead'      // local < npm: something wrong, skip
+	| 'equal'          // local === npm: needs commits to bump
+	| 'not_published'  // npm version is null: first release
+
+/**
+ * Compare local package version against npm published version
+ * Centralizes the "local vs npm" comparison logic used throughout the codebase
+ */
+export function compareLocalVsNpm(
+	localVersion: string,
+	npmVersion: string | null
+): VersionComparisonResult {
+	if (npmVersion === null) {
+		return 'not_published'
+	}
+	if (semver.gt(localVersion, npmVersion)) {
+		return 'local_ahead'
+	}
+	if (semver.lt(localVersion, npmVersion)) {
+		return 'npm_ahead'
+	}
+	return 'equal'
+}
+
+/**
  * Get the highest version from a list
  */
 export function getHighestVersion(versions: string[]): string | null {

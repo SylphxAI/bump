@@ -14,6 +14,7 @@ export {
 	createInitialBump,
 	isValidVersion,
 	compareVersions,
+	compareLocalVsNpm,
 	getHighestVersion,
 	calculateBumps,
 	calculateSingleBump,
@@ -22,6 +23,7 @@ export {
 	parseVersionFromTag,
 	type CalculateBumpsOptions,
 	type MonorepoBumpContext,
+	type VersionComparisonResult,
 } from './version.ts'
 export {
 	generateChangelogEntry,

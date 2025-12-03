@@ -10,7 +10,6 @@
  * - If local == npm + no commits: nothing to do
  */
 
-import semver from 'semver'
 import type { BumpConfig, ConventionalCommit, PackageInfo, VersionBump } from '../types.ts'
 import {
 	findTagForVersion,
@@ -31,6 +30,7 @@ import { getConventionalCommits } from './commits.ts'
 import {
 	calculateMonorepoBumps,
 	calculateSingleBump,
+	compareLocalVsNpm,
 	createInitialBump,
 	incrementVersion,
 	type MonorepoBumpContext,
@@ -127,8 +127,10 @@ export function calculateBumpsFromInfos(
 		// Skip private packages (defense in depth - should already be filtered)
 		if (pkg.private) continue
 
+		const comparison = compareLocalVsNpm(pkg.version, npmVersion)
+
 		// First release (need commits to trigger)
-		if (!npmVersion) {
+		if (comparison === 'not_published') {
 			if (commits.length === 0) continue
 			firstReleases.push(createInitialBump(pkg, commits))
 			continue
@@ -136,10 +138,10 @@ export function calculateBumpsFromInfos(
 
 		// Local > npm: already bumped (e.g., from merged PR), just publish
 		// No commits needed - version was already bumped
-		if (semver.gt(pkg.version, npmVersion)) {
+		if (comparison === 'local_ahead') {
 			alreadyBumped.push({
 				package: pkg.name,
-				currentVersion: npmVersion,
+				currentVersion: npmVersion!,
 				newVersion: pkg.version,
 				releaseType: 'manual', // Indicates pre-bumped, not recalculated
 				commits,
@@ -148,10 +150,8 @@ export function calculateBumpsFromInfos(
 		}
 
 		// Local < npm: something is wrong (rollback? npm ahead from another branch?)
-		// Skip and warn - don't try to publish older version
-		if (semver.lt(pkg.version, npmVersion)) {
-			// This shouldn't happen in normal workflow
-			// Skip silently - the package doesn't need a release
+		// Skip silently - the package doesn't need a release
+		if (comparison === 'npm_ahead') {
 			continue
 		}
 
@@ -181,17 +181,18 @@ export function calculateSingleBumpFromInfo(
 	config: BumpConfig
 ): VersionBump | null {
 	const { pkg, npmVersion, commits } = info
+	const comparison = compareLocalVsNpm(pkg.version, npmVersion)
 
 	// First release
-	if (!npmVersion) {
+	if (comparison === 'not_published') {
 		return createInitialBump(pkg, commits)
 	}
 
 	// Local > npm: already bumped, just publish
-	if (semver.gt(pkg.version, npmVersion)) {
+	if (comparison === 'local_ahead') {
 		return {
 			package: pkg.name,
-			currentVersion: npmVersion,
+			currentVersion: npmVersion!,
 			newVersion: pkg.version,
 			releaseType: 'manual',
 			commits,
@@ -199,7 +200,7 @@ export function calculateSingleBumpFromInfo(
 	}
 
 	// Local < npm: something is wrong, skip
-	if (semver.lt(pkg.version, npmVersion)) {
+	if (comparison === 'npm_ahead') {
 		return null
 	}
 
