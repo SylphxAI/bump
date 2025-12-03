@@ -68,6 +68,9 @@ export function createInitialBump(
 	}
 }
 
+/** Semver-compatible release types (excludes 'initial' and 'manual') */
+type SemverReleaseType = 'major' | 'minor' | 'patch' | 'premajor' | 'preminor' | 'prepatch' | 'prerelease'
+
 /**
  * Increment version based on release type
  * Automatically adjusts for 0.x semver rules
@@ -78,7 +81,7 @@ export function incrementVersion(
 	preid?: string
 ): string {
 	// Apply 0.x semver rules
-	const adjustedType = adjustReleaseTypeForZeroVersion(currentVersion, releaseType)
+	const adjustedType = adjustReleaseTypeForZeroVersion(currentVersion, releaseType) as SemverReleaseType
 
 	const result = preid
 		? semver.inc(currentVersion, adjustedType, preid)

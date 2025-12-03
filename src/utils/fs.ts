@@ -9,6 +9,8 @@ export interface PackageJson {
 	dependencies?: Record<string, string>
 	devDependencies?: Record<string, string>
 	peerDependencies?: Record<string, string>
+	/** Corepack package manager field (e.g., "pnpm@9.0.0") */
+	packageManager?: string
 }
 
 export function readPackageJson(dir: string): PackageJson | null {

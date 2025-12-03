@@ -129,7 +129,7 @@ function parseFrontmatter(content: string): [Record<string, string | string[]>, 
 		let i = 0
 
 		while (i < lines.length) {
-			const line = lines[i]
+			const line = lines[i] ?? ''
 			const colonIndex = line.indexOf(':')
 
 			if (colonIndex > 0) {
@@ -141,7 +141,7 @@ function parseFrontmatter(content: string): [Record<string, string | string[]>, 
 					const items: string[] = []
 					i++
 					while (i < lines.length && lines[i]?.match(/^\s+-/)) {
-						let item = lines[i].replace(/^\s+-\s*/, '').trim()
+						let item = (lines[i] ?? '').replace(/^\s+-\s*/, '').trim()
 						// Remove quotes if present
 						if (
 							(item.startsWith('"') && item.endsWith('"')) ||

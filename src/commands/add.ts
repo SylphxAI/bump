@@ -209,7 +209,8 @@ export async function runAddInteractive(options: AddOptions = {}): Promise<strin
 				process.exit(0)
 			}
 
-			selectedPackages = selected as string[]
+			// Extract values from multiselect result
+			selectedPackages = (selected as Array<{ label: string; value: string }>).map((s) => s.value)
 		}
 	}
 
