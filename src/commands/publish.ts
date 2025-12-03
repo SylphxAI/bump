@@ -56,6 +56,235 @@ interface PackageToProcess {
 }
 
 /**
+ * Discover packages that need publishing or tagging
+ */
+async function discoverPackagesToProcess(
+	packages: Array<{ name: string; version: string; path: string; private?: boolean }>,
+	cwd: string
+): Promise<PackageToProcess[]> {
+	const toProcess: PackageToProcess[] = []
+
+	if (packages.length > 0) {
+		// Monorepo: check each package
+		for (const pkg of packages) {
+			if (pkg.private) continue
+
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+			const tag = `${pkg.name}@${pkg.version}`
+			const existingTag = await $`git tag -l ${tag}`.nothrow()
+			const hasTag = !!existingTag.stdout.trim()
+
+			if (pkg.version !== npmVersion) {
+				toProcess.push({
+					name: pkg.name,
+					version: pkg.version,
+					path: pkg.path,
+					needsPublish: true,
+					needsTag: true,
+					tag,
+				})
+			} else if (!hasTag) {
+				toProcess.push({
+					name: pkg.name,
+					version: pkg.version,
+					path: pkg.path,
+					needsPublish: false,
+					needsTag: true,
+					tag,
+				})
+			}
+		}
+	} else {
+		// Single package
+		const pkg = getSinglePackage(cwd)
+		if (pkg) {
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+			const tag = `v${pkg.version}`
+			const existingTag = await $`git tag -l ${tag}`.nothrow()
+			const hasTag = !!existingTag.stdout.trim()
+
+			if (pkg.version !== npmVersion) {
+				toProcess.push({
+					name: pkg.name,
+					version: pkg.version,
+					path: cwd,
+					needsPublish: true,
+					needsTag: true,
+					tag,
+				})
+			} else if (!hasTag) {
+				toProcess.push({
+					name: pkg.name,
+					version: pkg.version,
+					path: cwd,
+					needsPublish: false,
+					needsTag: true,
+					tag,
+				})
+			}
+		}
+	}
+
+	return toProcess
+}
+
+/**
+ * Display what we're going to publish
+ */
+function displayPublishPlan(toProcess: PackageToProcess[]): void {
+	const toPublish = toProcess.filter((p) => p.needsPublish)
+	const onlyTag = toProcess.filter((p) => !p.needsPublish && p.needsTag)
+
+	if (toPublish.length > 0) {
+		consola.info(`Packages to publish: ${toPublish.length}`)
+		for (const pkg of toPublish) {
+			consola.info(`  ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}`)
+		}
+	}
+
+	if (onlyTag.length > 0) {
+		consola.info(`Packages needing tags (already published): ${onlyTag.length}`)
+		for (const pkg of onlyTag) {
+			consola.info(`  ${pc.dim(pkg.name)}@${pc.dim(pkg.version)}`)
+		}
+	}
+}
+
+/**
+ * Validate all packages before publishing
+ */
+function validateAllPackages(toPublish: PackageToProcess[]): void {
+	if (toPublish.length === 0) return
+
+	consola.start('Validating packages...')
+	const allErrors: Map<string, string[]> = new Map()
+
+	for (const pkg of toPublish) {
+		const errors = validatePackageFiles(pkg.path)
+		if (errors.length > 0) {
+			allErrors.set(pkg.name, errors)
+		}
+	}
+
+	if (allErrors.size > 0) {
+		const errorList = Array.from(allErrors.entries())
+			.map(([name, errors]) => `${name}:\n${errors.map((e) => `  - ${e}`).join('\n')}`)
+			.join('\n\n')
+		throw new ValidationError(
+			`Package validation failed:\n\n${errorList}`,
+			'Did you forget to build? Run your build command before bump publish.'
+		)
+	}
+	consola.success('All packages validated')
+}
+
+/**
+ * Install dependencies before publishing
+ */
+async function installDependencies(cwd: string): Promise<void> {
+	consola.start('Installing dependencies...')
+	const pm = detectPM(cwd)
+	const ciCmd = getInstallCommandCI(pm)
+	let installResult = await $({ cwd })`${ciCmd}`.nothrow()
+	if (installResult.exitCode !== 0) {
+		const cmd = getInstallCommand(pm)
+		installResult = await $({ cwd })`${cmd}`.nothrow()
+		if (installResult.exitCode !== 0) {
+			consola.warn('Install had issues, continuing...')
+		}
+	}
+}
+
+/**
+ * Publish packages to npm
+ * Returns list of successfully published packages and whether all succeeded
+ */
+async function publishPackagesToNpm(
+	toPublish: PackageToProcess[]
+): Promise<{ published: PackageToProcess[]; allSuccess: boolean }> {
+	if (toPublish.length === 0) {
+		return { published: [], allSuccess: true }
+	}
+
+	consola.start('Publishing to npm...')
+	const publishedPackages: PackageToProcess[] = []
+	let allSuccess = true
+
+	for (const pkg of toPublish) {
+		consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
+
+		const publishResult = await $({
+			cwd: pkg.path,
+		})`npm publish --access public --ignore-scripts`.nothrow()
+
+		if (publishResult.exitCode !== 0) {
+			const stderr = publishResult.stderr
+			if (
+				stderr.includes('Cannot publish over previously published version') ||
+				stderr.includes('cannot publish over the previously published versions')
+			) {
+				consola.error(`  Version ${pkg.version} is blocked on npm`)
+				consola.info(`  → Manually bump to a higher version and create a new PR`)
+			} else {
+				consola.error(`  Failed to publish ${pkg.name}: ${stderr}`)
+			}
+			allSuccess = false
+			break
+		}
+
+		publishedPackages.push(pkg)
+		consola.success(`  Published ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}`)
+	}
+
+	return { published: publishedPackages, allSuccess }
+}
+
+/**
+ * Create git tags and GitHub releases
+ */
+async function createTagsAndReleases(toTag: PackageToProcess[]): Promise<void> {
+	if (toTag.length === 0) return
+
+	consola.start('Creating tags...')
+	for (const pkg of toTag) {
+		const existingTag = await $`git tag -l ${pkg.tag}`.nothrow()
+		if (!existingTag.stdout.trim()) {
+			await $`git tag -a ${pkg.tag} -m "Release ${pkg.tag}"`
+			consola.info(`  Created tag ${pc.green(pkg.tag)}`)
+		}
+	}
+	await $`git push --tags`
+
+	// Create GitHub releases
+	consola.start('Creating GitHub releases...')
+	for (const pkg of toTag) {
+		const changelogFile = join(pkg.path, 'CHANGELOG.md')
+
+		if (existsSync(changelogFile)) {
+			const changelog = readFileSync(changelogFile, 'utf-8')
+			const versionMatch = changelog.match(
+				new RegExp(`## ${pkg.version.replace(/\./g, '\\.')}[^#]*`, 's')
+			)
+			const notes = versionMatch ? versionMatch[0].trim() : ''
+
+			if (notes) {
+				await $`echo ${notes} | gh release create ${pkg.tag} --title ${pkg.tag} --notes-file -`
+					.quiet()
+					.nothrow()
+			} else {
+				await $`gh release create ${pkg.tag} --title ${pkg.tag} --generate-notes`
+					.quiet()
+					.nothrow()
+			}
+		} else {
+			await $`gh release create ${pkg.tag} --title ${pkg.tag} --generate-notes`
+				.quiet()
+				.nothrow()
+		}
+	}
+}
+
+/**
  * Validate that package files exist before publishing
  * Checks: files, main, exports, types fields in package.json
  */
@@ -165,72 +394,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	const packages = isMonorepoProject ? await discoverPackages(cwd, config) : []
 
 	// Determine what needs publishing and tagging
-	const toProcess: PackageToProcess[] = []
-
-	if (packages.length > 0) {
-		// Monorepo: check each package
-		for (const pkg of packages) {
-			// Skip private packages
-			if (pkg.private) continue
-
-			const npmVersion = await getNpmPublishedVersion(pkg.name)
-			const tag = `${pkg.name}@${pkg.version}`
-			const existingTag = await $`git tag -l ${tag}`.nothrow()
-			const hasTag = !!existingTag.stdout.trim()
-
-			if (pkg.version !== npmVersion) {
-				// Needs publish and tag
-				toProcess.push({
-					name: pkg.name,
-					version: pkg.version,
-					path: pkg.path,
-					needsPublish: true,
-					needsTag: true,
-					tag,
-				})
-			} else if (!hasTag) {
-				// Already on npm but missing tag (from previous partial failure)
-				toProcess.push({
-					name: pkg.name,
-					version: pkg.version,
-					path: pkg.path,
-					needsPublish: false,
-					needsTag: true,
-					tag,
-				})
-			}
-		}
-	} else {
-		// Single package
-		const pkg = getSinglePackage(cwd)
-		if (pkg) {
-			const npmVersion = await getNpmPublishedVersion(pkg.name)
-			const tag = `v${pkg.version}`
-			const existingTag = await $`git tag -l ${tag}`.nothrow()
-			const hasTag = !!existingTag.stdout.trim()
-
-			if (pkg.version !== npmVersion) {
-				toProcess.push({
-					name: pkg.name,
-					version: pkg.version,
-					path: cwd,
-					needsPublish: true,
-					needsTag: true,
-					tag,
-				})
-			} else if (!hasTag) {
-				toProcess.push({
-					name: pkg.name,
-					version: pkg.version,
-					path: cwd,
-					needsPublish: false,
-					needsTag: true,
-					tag,
-				})
-			}
-		}
-	}
-
+	const toProcess = await discoverPackagesToProcess(packages, cwd)
 	const toPublish = toProcess.filter((p) => p.needsPublish)
 	const toTag = toProcess.filter((p) => p.needsTag)
 
@@ -239,21 +403,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		return { published: false, packages: [] }
 	}
 
-	// Display what we're going to do
-	if (toPublish.length > 0) {
-		consola.info(`Packages to publish: ${toPublish.length}`)
-		for (const pkg of toPublish) {
-			consola.info(`  ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}`)
-		}
-	}
-
-	if (toTag.length > toPublish.length) {
-		const onlyTag = toProcess.filter((p) => !p.needsPublish && p.needsTag)
-		consola.info(`Packages needing tags (already published): ${onlyTag.length}`)
-		for (const pkg of onlyTag) {
-			consola.info(`  ${pc.dim(pkg.name)}@${pc.dim(pkg.version)}`)
-		}
-	}
+	displayPublishPlan(toProcess)
 
 	if (options.dryRun) {
 		consola.info('Dry run - no changes will be made')
@@ -263,34 +413,15 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		}
 	}
 
-	// Validate packages before publishing (check files/main/exports/types exist)
-	if (toPublish.length > 0) {
-		consola.start('Validating packages...')
-		const allErrors: Map<string, string[]> = new Map()
-
-		for (const pkg of toPublish) {
-			const errors = validatePackageFiles(pkg.path)
-			if (errors.length > 0) {
-				allErrors.set(pkg.name, errors)
-			}
-		}
-
-		if (allErrors.size > 0) {
-			const errorList = Array.from(allErrors.entries())
-				.map(([name, errors]) => `${name}:\n${errors.map((e) => `  - ${e}`).join('\n')}`)
-				.join('\n\n')
-			throw new ValidationError(
-				`Package validation failed:\n\n${errorList}`,
-				'Did you forget to build? Run your build command before bump publish.'
-			)
-		}
-		consola.success('All packages validated')
-	}
+	// Validate packages before publishing
+	validateAllPackages(toPublish)
 
 	// Setup workspace deps restoration (guaranteed via try/finally)
 	let workspaceDepsSnapshot: ReturnType<typeof saveWorkspaceDeps> | null = null
-	let allSuccess = true
-	const publishedPackages: PackageToProcess[] = []
+	let publishResult: { published: PackageToProcess[]; allSuccess: boolean } = {
+		published: [],
+		allSuccess: true,
+	}
 
 	// Create temporary .npmrc for authentication
 	const npmrcPath = join(cwd, '.npmrc')
@@ -304,19 +435,9 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 			consola.info('Resolved workspace dependencies')
 		}
 
-		// Install dependencies to update lockfile
+		// Install dependencies
 		if (toPublish.length > 0) {
-			consola.start('Installing dependencies...')
-			const pm = detectPM(cwd)
-			const ciCmd = getInstallCommandCI(pm)
-			let installResult = await $({ cwd })`${ciCmd}`.nothrow()
-			if (installResult.exitCode !== 0) {
-				const cmd = getInstallCommand(pm)
-				installResult = await $({ cwd })`${cmd}`.nothrow()
-				if (installResult.exitCode !== 0) {
-					consola.warn('Install had issues, continuing...')
-				}
-			}
+			await installDependencies(cwd)
 		}
 
 		// Setup npm auth
@@ -325,36 +446,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 		}
 
 		// Publish packages
-		if (toPublish.length > 0) {
-			consola.start('Publishing to npm...')
-
-			for (const pkg of toPublish) {
-				consola.info(`  Publishing ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}...`)
-
-				// Use --ignore-scripts: CI must build before bump, not during npm publish
-				const publishResult = await $({
-					cwd: pkg.path,
-				})`npm publish --access public --ignore-scripts`.nothrow()
-
-				if (publishResult.exitCode !== 0) {
-					const stderr = publishResult.stderr
-					if (
-						stderr.includes('Cannot publish over previously published version') ||
-						stderr.includes('cannot publish over the previously published versions')
-					) {
-						consola.error(`  Version ${pkg.version} is blocked on npm`)
-						consola.info(`  → Manually bump to a higher version and create a new PR`)
-					} else {
-						consola.error(`  Failed to publish ${pkg.name}: ${stderr}`)
-					}
-					allSuccess = false
-					break
-				}
-
-				publishedPackages.push(pkg)
-				consola.success(`  Published ${pc.cyan(pkg.name)}@${pc.green(pkg.version)}`)
-			}
-		}
+		publishResult = await publishPackagesToNpm(toPublish)
 	} finally {
 		// ALWAYS restore workspace deps, even on failure
 		if (workspaceDepsSnapshot) {
@@ -377,47 +469,11 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 	}
 
 	// Create tags and releases only if ALL publishes succeeded
-	if (allSuccess && toTag.length > 0) {
-		consola.start('Creating tags...')
-		for (const pkg of toTag) {
-			const existingTag = await $`git tag -l ${pkg.tag}`.nothrow()
-			if (!existingTag.stdout.trim()) {
-				await $`git tag -a ${pkg.tag} -m "Release ${pkg.tag}"`
-				consola.info(`  Created tag ${pc.green(pkg.tag)}`)
-			}
-		}
-		await $`git push --tags`
-
-		// Create GitHub releases
-		consola.start('Creating GitHub releases...')
-		for (const pkg of toTag) {
-			const changelogFile = join(pkg.path, 'CHANGELOG.md')
-
-			if (existsSync(changelogFile)) {
-				const changelog = readFileSync(changelogFile, 'utf-8')
-				const versionMatch = changelog.match(
-					new RegExp(`## ${pkg.version.replace(/\./g, '\\.')}[^#]*`, 's')
-				)
-				const notes = versionMatch ? versionMatch[0].trim() : ''
-
-				if (notes) {
-					await $`echo ${notes} | gh release create ${pkg.tag} --title ${pkg.tag} --notes-file -`
-						.quiet()
-						.nothrow()
-				} else {
-					await $`gh release create ${pkg.tag} --title ${pkg.tag} --generate-notes`
-						.quiet()
-						.nothrow()
-				}
-			} else {
-				await $`gh release create ${pkg.tag} --title ${pkg.tag} --generate-notes`
-					.quiet()
-					.nothrow()
-			}
-		}
+	if (publishResult.allSuccess) {
+		await createTagsAndReleases(toTag)
 	}
 
-	if (!allSuccess) {
+	if (!publishResult.allSuccess) {
 		throw new PublishError(
 			'Publish failed - some packages were not published',
 			'Fix the issue and re-run. Already published packages will be skipped.'
@@ -426,7 +482,7 @@ export async function runPublish(options: PublishOptions = {}): Promise<PublishR
 
 	consola.success('Publish completed!')
 	return {
-		published: publishedPackages.length > 0,
-		packages: publishedPackages.map((p) => ({ name: p.name, version: p.version })),
+		published: publishResult.published.length > 0,
+		packages: publishResult.published.map((p) => ({ name: p.name, version: p.version })),
 	}
 }

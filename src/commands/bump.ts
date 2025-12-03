@@ -32,6 +32,254 @@ import {
 } from '../utils/git.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
 
+/** Type for commits returned by getConventionalCommits */
+type ConventionalCommit = Awaited<ReturnType<typeof getConventionalCommits>>[number]
+
+/** Return type for package analysis */
+interface PackageAnalysisResult {
+	bumps: VersionBump[]
+	allCommits: ConventionalCommit[]
+}
+
+/**
+ * Analyze monorepo packages and calculate bumps
+ */
+async function analyzeMonorepoPackages(
+	packages: Awaited<ReturnType<typeof discoverPackages>>,
+	config: Awaited<ReturnType<typeof loadConfig>>,
+	gitRoot: string,
+	options: Pick<BumpOptions, 'preid' | 'prerelease'>
+): Promise<PackageAnalysisResult> {
+	consola.info(`Monorepo detected with ${pc.bold(packages.length)} packages`)
+
+	// Pre-fetch all tags once for reuse
+	const allTags = await getAllTags()
+
+	// Process all packages in parallel - LOCAL version is SSOT
+	const packageResults = await Promise.all(
+		packages.map(async (pkg) => {
+			const npmVersion = await getNpmPublishedVersion(pkg.name)
+			let baselineTag: string | null = findTagForVersion(pkg.version, allTags, pkg.name)
+			if (!baselineTag) {
+				baselineTag = await getLatestTagForPackage(pkg.name, allTags)
+			}
+			const commits = await getConventionalCommits(baselineTag ?? undefined)
+			return { pkg, baselineTag, npmVersion, commits }
+		})
+	)
+
+	// Build contexts from parallel results
+	const contexts: MonorepoBumpContext[] = []
+	const firstReleases: VersionBump[] = []
+	const alreadyBumped: VersionBump[] = []
+	const allCommits: ConventionalCommit[] = []
+
+	for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
+		// Collect all commits for reporting
+		for (const c of commits) {
+			if (!allCommits.some((ac) => ac.hash === c.hash)) {
+				allCommits.push(c)
+			}
+		}
+
+		const baseline = baselineTag ?? 'no previous release'
+		consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
+
+		// First release
+		if (!npmVersion) {
+			if (commits.length === 0) continue
+			const bump = createInitialBump(pkg, commits)
+			consola.info(`  ${pc.dim('→')} First release: ${bump.newVersion}`)
+			firstReleases.push(bump)
+			continue
+		}
+
+		// Local > npm: already bumped, just publish
+		const semver = await import('semver')
+		if (semver.default.gt(pkg.version, npmVersion)) {
+			consola.info(`  ${pc.dim('→')} Already bumped: ${npmVersion} → ${pkg.version}`)
+			alreadyBumped.push({
+				package: pkg.name,
+				currentVersion: npmVersion,
+				newVersion: pkg.version,
+				releaseType: 'manual',
+				commits,
+			})
+			continue
+		}
+
+		// Local < npm: something is wrong, skip
+		if (semver.default.lt(pkg.version, npmVersion)) {
+			consola.warn(`  ${pc.dim('→')} Skipping: local ${pkg.version} < npm ${npmVersion}`)
+			continue
+		}
+
+		// Local == npm: need new commits to bump
+		if (commits.length === 0) continue
+
+		contexts.push({
+			package: pkg,
+			commits,
+			latestTag: baselineTag,
+		})
+	}
+
+	// Combine all bumps
+	const bumps = [
+		...firstReleases,
+		...alreadyBumped,
+		...calculateMonorepoBumps(contexts, config, {
+			gitRoot,
+			preid: options.preid,
+			prerelease: options.prerelease,
+		}),
+	]
+
+	return { bumps, allCommits }
+}
+
+/**
+ * Analyze single package and calculate bump
+ */
+async function analyzeSinglePackage(
+	cwd: string,
+	config: Awaited<ReturnType<typeof loadConfig>>,
+	options: Pick<BumpOptions, 'preid' | 'prerelease' | 'verbose'>
+): Promise<PackageAnalysisResult & { pkg: ReturnType<typeof getSinglePackage> }> {
+	const pkg = getSinglePackage(cwd)
+	if (!pkg) {
+		return { bumps: [], allCommits: [], pkg: null }
+	}
+
+	const npmVersion = await getNpmPublishedVersion(pkg.name)
+	const allTags = await getAllTags()
+	let baselineTag: string | null = findTagForVersion(pkg.version, allTags)
+	if (!baselineTag) {
+		baselineTag = await getLatestTag()
+	}
+
+	const commits = await getConventionalCommits(baselineTag ?? undefined)
+	const baseline = baselineTag ?? 'beginning'
+	consola.info(`Found ${pc.bold(commits.length)} commits since ${baseline}`)
+
+	if (options.verbose) {
+		consola.debug('Commits:')
+		for (const c of commits) {
+			consola.debug(
+				`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`
+			)
+		}
+		consola.debug(`Package: ${pkg.name}@${pkg.version}`)
+	}
+
+	let bumps: VersionBump[] = []
+
+	// First release
+	if (!npmVersion) {
+		if (commits.length > 0) {
+			const bump = createInitialBump(pkg, commits)
+			consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
+			bumps = [bump]
+		}
+		return { bumps, allCommits: commits, pkg }
+	}
+
+	// Compare versions
+	const semver = await import('semver')
+	if (semver.default.gt(pkg.version, npmVersion)) {
+		// Local > npm: already bumped
+		consola.info(`Already bumped: ${npmVersion} → ${pkg.version}`)
+		bumps = [
+			{
+				package: pkg.name,
+				currentVersion: npmVersion,
+				newVersion: pkg.version,
+				releaseType: 'manual',
+				commits,
+			},
+		]
+	} else if (semver.default.lt(pkg.version, npmVersion)) {
+		// Local < npm: something is wrong
+		consola.warn(`Skipping: local ${pkg.version} < npm ${npmVersion}`)
+	} else if (commits.length > 0) {
+		// Local == npm: need new commits to bump
+		const bump = calculateSingleBump(pkg, commits, config, {
+			preid: options.preid,
+			prerelease: options.prerelease,
+		})
+		if (bump) bumps = [bump]
+	}
+
+	return { bumps, allCommits: commits, pkg }
+}
+
+/**
+ * Apply version changes to packages
+ */
+function applyVersionChanges(
+	bumps: VersionBump[],
+	packages: Awaited<ReturnType<typeof discoverPackages>>,
+	config: Awaited<ReturnType<typeof loadConfig>>,
+	cwd: string,
+	repoUrl: string | null,
+	updateChangelogs: boolean
+): string[] {
+	const filesToStage: string[] = []
+
+	for (const bump of bumps) {
+		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
+		consola.start(`Updating ${pc.cyan(bump.package)} to ${pc.green(bump.newVersion)}...`)
+		updatePackageVersion(pkgPath, bump.newVersion)
+		filesToStage.push(`${pkgPath}/package.json`)
+
+		if (updateChangelogs) {
+			const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
+			updateChangelog(pkgPath, entry, config)
+			filesToStage.push(`${pkgPath}/${config.changelog?.file ?? 'CHANGELOG.md'}`)
+		}
+	}
+
+	// Update dependency versions in monorepo
+	if (packages.length > 0 && config.packages?.dependencyUpdates !== 'none') {
+		const versionUpdates = new Map(bumps.map((b) => [b.package, b.newVersion]))
+		updateDependencyVersions(cwd, packages, versionUpdates)
+	}
+
+	return filesToStage
+}
+
+/**
+ * Commit and tag release
+ */
+async function commitAndTagRelease(
+	bumps: VersionBump[],
+	packages: Awaited<ReturnType<typeof discoverPackages>>,
+	filesToStage: string[],
+	options: Pick<BumpOptions, 'commit' | 'tag'>
+): Promise<void> {
+	// Commit changes
+	if (options.commit !== false) {
+		consola.start('Committing changes...')
+		await stageFiles(filesToStage)
+		const commitMsg =
+			bumps.length === 1
+				? `chore(release): ${bumps[0]?.package}@${bumps[0]?.newVersion}`
+				: `chore(release): bump versions\n\n${bumps.map((b) => `- ${b.package}@${b.newVersion}`).join('\n')}`
+		await commit(commitMsg)
+	}
+
+	// Create tags
+	if (options.tag !== false) {
+		const tagPromises = bumps.map((bump) => {
+			const tag = formatVersionTag(bump.newVersion)
+			const tagName = packages.length > 1 ? `${bump.package}@${bump.newVersion}` : tag
+			return createTag(tagName, `Release ${tagName}`)
+		})
+		consola.start(`Creating tag${bumps.length > 1 ? 's' : ''}...`)
+		await Promise.all(tagPromises)
+	}
+}
+
 export interface BumpOptions {
 	cwd?: string
 	dryRun?: boolean
@@ -63,210 +311,22 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 
 	consola.start('Analyzing commits...')
 
-	// Determine packages and bumps
-	let bumps: VersionBump[] = []
-	let allCommits: ReturnType<typeof getConventionalCommits> extends Promise<infer T> ? T : never =
-		[]
+	// Analyze packages and calculate bumps
 	const packages = isMonorepo(cwd) ? await discoverPackages(cwd, config) : []
+	let result: PackageAnalysisResult
 
 	if (packages.length > 0) {
-		consola.info(`Monorepo detected with ${pc.bold(packages.length)} packages`)
-
-		// Pre-fetch all tags once for reuse
-		const allTags = await getAllTags()
-
-		// Process all packages in parallel - LOCAL version is SSOT
-		const packageResults = await Promise.all(
-			packages.map(async (pkg) => {
-				// Query npm to check if publish is needed (local vs npm comparison)
-				const npmVersion = await getNpmPublishedVersion(pkg.name)
-
-				// Find baseline tag for LOCAL version (not npm)
-				let baselineTag: string | null = findTagForVersion(pkg.version, allTags, pkg.name)
-
-				// Fall back to latest git tag if no tag for current version
-				if (!baselineTag) {
-					baselineTag = await getLatestTagForPackage(pkg.name, allTags)
-				}
-
-				const commits = await getConventionalCommits(baselineTag ?? undefined)
-				return { pkg, baselineTag, npmVersion, commits }
-			})
-		)
-
-		// Build contexts from parallel results, handling first releases
-		const contexts: MonorepoBumpContext[] = []
-		const firstReleases: VersionBump[] = []
-		const alreadyBumped: VersionBump[] = [] // local > npm
-
-		for (const { pkg, baselineTag, npmVersion, commits } of packageResults) {
-			// Collect all commits for reporting (even for already-bumped packages)
-			for (const c of commits) {
-				if (!allCommits.some((ac) => ac.hash === c.hash)) {
-					allCommits.push(c)
-				}
-			}
-
-			const baseline = baselineTag ?? 'no previous release'
-			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
-
-			// First release
-			if (!npmVersion) {
-				if (commits.length === 0) continue
-				const bump = createInitialBump(pkg, commits)
-				consola.info(`  ${pc.dim('→')} First release: ${bump.newVersion}`)
-				firstReleases.push(bump)
-				continue
-			}
-
-			// Local > npm: already bumped, just publish
-			const semver = await import('semver')
-			if (semver.default.gt(pkg.version, npmVersion)) {
-				consola.info(`  ${pc.dim('→')} Already bumped: ${npmVersion} → ${pkg.version}`)
-				alreadyBumped.push({
-					package: pkg.name,
-					currentVersion: npmVersion,
-					newVersion: pkg.version,
-					releaseType: 'manual',
-					commits,
-				})
-				continue
-			}
-
-			// Local < npm: something is wrong, skip
-			if (semver.default.lt(pkg.version, npmVersion)) {
-				consola.warn(`  ${pc.dim('→')} Skipping: local ${pkg.version} < npm ${npmVersion}`)
-				continue
-			}
-
-			// Local == npm: need new commits to bump
-			if (commits.length === 0) continue
-
-			// Calculate bump from LOCAL version
-			contexts.push({
-				package: pkg,
-				commits,
-				latestTag: baselineTag,
-			})
-		}
-
-		if (contexts.length === 0 && firstReleases.length === 0 && alreadyBumped.length === 0) {
-			consola.info('No version changes needed')
-			return {
-				config,
-				packages,
-				commits: [],
-				bumps: [],
-				dryRun: options.dryRun ?? false,
-			}
-		}
-
-		// Combine first releases, already bumped, and calculated bumps
-		bumps = [
-			...firstReleases,
-			...alreadyBumped,
-			...calculateMonorepoBumps(contexts, config, {
-				gitRoot,
-				preid: options.preid,
-				prerelease: options.prerelease,
-			}),
-		]
+		result = await analyzeMonorepoPackages(packages, config, gitRoot, options)
 	} else {
-		// Single package mode - LOCAL version is SSOT
-		const pkg = getSinglePackage(cwd)
-		if (!pkg) {
+		const singleResult = await analyzeSinglePackage(cwd, config, options)
+		if (!singleResult.pkg) {
 			consola.error('No package.json found')
 			return { config, packages: [], commits: [], bumps: [], dryRun: options.dryRun ?? false }
 		}
-
-		// Query npm to check if publish is needed (local vs npm comparison)
-		const npmVersion = await getNpmPublishedVersion(pkg.name)
-		const allTags = await getAllTags()
-
-		// Find baseline tag for LOCAL version (not npm)
-		let baselineTag: string | null = findTagForVersion(pkg.version, allTags)
-
-		// Fall back to latest git tag if no tag for current version
-		if (!baselineTag) {
-			baselineTag = await getLatestTag()
-		}
-
-		const commits = await getConventionalCommits(baselineTag ?? undefined)
-		allCommits = commits
-
-		const baseline = baselineTag ?? 'beginning'
-		consola.info(`Found ${pc.bold(commits.length)} commits since ${baseline}`)
-
-		if (options.verbose) {
-			consola.debug('Commits:')
-			for (const c of commits) {
-				consola.debug(
-					`  ${c.hash.slice(0, 7)} ${c.type}${c.scope ? `(${c.scope})` : ''}: ${c.subject}${c.breaking ? ' [BREAKING]' : ''}`
-				)
-			}
-			consola.debug(`Package: ${pkg.name}@${pkg.version}`)
-		}
-
-		// First release: use package.json version directly (but need commits)
-		if (!npmVersion) {
-			if (commits.length === 0) {
-				consola.info('No new commits since last release')
-				return {
-					config,
-					packages: [],
-					commits: [],
-					bumps: [],
-					dryRun: options.dryRun ?? false,
-				}
-			}
-			const bump = createInitialBump(pkg, commits)
-			consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
-			bumps = [bump]
-		} else {
-			// Local > npm: already bumped, just publish
-			const semver = await import('semver')
-			if (semver.default.gt(pkg.version, npmVersion)) {
-				consola.info(`Already bumped: ${npmVersion} → ${pkg.version}`)
-				bumps = [
-					{
-						package: pkg.name,
-						currentVersion: npmVersion,
-						newVersion: pkg.version,
-						releaseType: 'manual',
-						commits,
-					},
-				]
-			} else if (semver.default.lt(pkg.version, npmVersion)) {
-				// Local < npm: something is wrong, skip
-				consola.warn(`Skipping: local ${pkg.version} < npm ${npmVersion}`)
-				return {
-					config,
-					packages: [],
-					commits: [],
-					bumps: [],
-					dryRun: options.dryRun ?? false,
-				}
-			} else {
-				// Local == npm: need new commits to bump
-				if (commits.length === 0) {
-					consola.info('No new commits since last release')
-					return {
-						config,
-						packages: [],
-						commits: [],
-						bumps: [],
-						dryRun: options.dryRun ?? false,
-					}
-				}
-				// Calculate bump from LOCAL version
-				const bump = calculateSingleBump(pkg, commits, config, {
-					preid: options.preid,
-					prerelease: options.prerelease,
-				})
-				if (bump) bumps = [bump]
-			}
-		}
+		result = singleResult
 	}
+
+	const { bumps, allCommits } = result
 
 	if (bumps.length === 0) {
 		consola.info('No version bumps needed (commits do not trigger version changes)')
@@ -298,56 +358,20 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 		consola.warn('Working tree is not clean. Please commit or stash changes first.')
 	}
 
-	// Apply changes
-	const filesToStage: string[] = []
+	// Apply version changes
+	const filesToStage = applyVersionChanges(
+		bumps,
+		packages,
+		config,
+		cwd,
+		repoUrl,
+		options.changelog !== false
+	)
 
-	for (const bump of bumps) {
-		const pkgPath = packages.find((p) => p.name === bump.package)?.path ?? cwd
+	// Commit and tag
+	await commitAndTagRelease(bumps, packages, filesToStage, options)
 
-		// Update package version
-		consola.start(`Updating ${pc.cyan(bump.package)} to ${pc.green(bump.newVersion)}...`)
-		updatePackageVersion(pkgPath, bump.newVersion)
-		filesToStage.push(`${pkgPath}/package.json`)
-
-		// Update changelog
-		if (options.changelog !== false) {
-			const entry = generateChangelogEntry(bump, config, { repoUrl: repoUrl ?? undefined })
-			updateChangelog(pkgPath, entry, config)
-			filesToStage.push(`${pkgPath}/${config.changelog?.file ?? 'CHANGELOG.md'}`)
-		}
-	}
-
-	// Update dependency versions in monorepo
-	if (packages.length > 0 && config.packages?.dependencyUpdates !== 'none') {
-		const versionUpdates = new Map(bumps.map((b) => [b.package, b.newVersion]))
-		updateDependencyVersions(cwd, packages, versionUpdates)
-	}
-
-	// Commit changes
-	if (options.commit !== false) {
-		consola.start('Committing changes...')
-		await stageFiles(filesToStage)
-
-		const commitMsg =
-			bumps.length === 1
-				? `chore(release): ${bumps[0]?.package}@${bumps[0]?.newVersion}`
-				: `chore(release): bump versions\n\n${bumps.map((b) => `- ${b.package}@${b.newVersion}`).join('\n')}`
-
-		await commit(commitMsg)
-	}
-
-	// Create tags (in parallel)
-	if (options.tag !== false) {
-		const tagPromises = bumps.map((bump) => {
-			const tag = formatVersionTag(bump.newVersion)
-			const tagName = packages.length > 1 ? `${bump.package}@${bump.newVersion}` : tag
-			return createTag(tagName, `Release ${tagName}`)
-		})
-		consola.start(`Creating tag${bumps.length > 1 ? 's' : ''}...`)
-		await Promise.all(tagPromises)
-	}
-
-	// Create GitHub releases (in parallel)
+	// Create GitHub releases
 	if (options.release !== false) {
 		consola.start(`Creating GitHub release${bumps.length > 1 ? 's' : ''}...`)
 		await createReleasesForBumps(bumps, config)
