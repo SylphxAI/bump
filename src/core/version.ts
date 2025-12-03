@@ -44,6 +44,14 @@ export function adjustReleaseTypeForZeroVersion(
 }
 
 /**
+ * Normalize version for initial release
+ * 0.0.0 is not a valid release version, auto-upgrade to 0.1.0
+ */
+export function normalizeInitialVersion(version: string): string {
+	return version === '0.0.0' ? '0.1.0' : version
+}
+
+/**
  * Increment version based on release type
  * Automatically adjusts for 0.x semver rules
  */

@@ -20,6 +20,7 @@ import {
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
+	normalizeInitialVersion,
 	readBumpFiles,
 	readBumpState,
 	updateChangelog,
@@ -227,13 +228,14 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				continue
 			}
 
-			// First release: use package.json version
+			// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
 			if (!npmVersion) {
-				consola.info(`First release: ${pkg.name}@${pkg.version}`)
+				const initialVersion = normalizeInitialVersion(pkg.version)
+				consola.info(`First release: ${pkg.name}@${initialVersion}`)
 				bumps.push({
 					package: pkg.name,
-					currentVersion: pkg.version,
-					newVersion: pkg.version,
+					currentVersion: initialVersion,
+					newVersion: initialVersion,
 					releaseType: 'initial',
 					commits: pkgCommits,
 				})
@@ -326,14 +328,15 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		// First release: use package.json version
+		// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
 		if (!info.npmVersion) {
-			consola.info(`First release: ${pkg.name}@${pkg.version}`)
+			const initialVersion = normalizeInitialVersion(pkg.version)
+			consola.info(`First release: ${pkg.name}@${initialVersion}`)
 			bumps = [
 				{
 					package: pkg.name,
-					currentVersion: pkg.version,
-					newVersion: pkg.version,
+					currentVersion: initialVersion,
+					newVersion: initialVersion,
 					releaseType: 'initial',
 					commits: info.commits,
 				},

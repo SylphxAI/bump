@@ -10,6 +10,7 @@ export {
 } from './commits.ts'
 export {
 	incrementVersion,
+	normalizeInitialVersion,
 	isValidVersion,
 	compareVersions,
 	getHighestVersion,

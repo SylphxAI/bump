@@ -12,6 +12,7 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
+	normalizeInitialVersion,
 	updateChangelog,
 	updateDependencyVersions,
 	updatePackageVersion,
@@ -109,14 +110,15 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			const baseline = baselineTag ?? 'no previous release'
 			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 
-			// First release: use package.json version directly (but need commits)
+			// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
 			if (!npmVersion) {
 				if (commits.length === 0) continue
-				consola.info(`  ${pc.dim('→')} First release: ${pkg.version}`)
+				const initialVersion = normalizeInitialVersion(pkg.version)
+				consola.info(`  ${pc.dim('→')} First release: ${initialVersion}`)
 				firstReleases.push({
 					package: pkg.name,
-					currentVersion: pkg.version,
-					newVersion: pkg.version,
+					currentVersion: initialVersion,
+					newVersion: initialVersion,
 					releaseType: 'initial',
 					commits,
 				})
@@ -223,12 +225,13 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 					dryRun: options.dryRun ?? false,
 				}
 			}
-			consola.info(`First release: ${pkg.name}@${pkg.version}`)
+			const initialVersion = normalizeInitialVersion(pkg.version)
+			consola.info(`First release: ${pkg.name}@${initialVersion}`)
 			bumps = [
 				{
 					package: pkg.name,
-					currentVersion: pkg.version,
-					newVersion: pkg.version,
+					currentVersion: initialVersion,
+					newVersion: initialVersion,
 					releaseType: 'initial',
 					commits,
 				},

@@ -32,6 +32,7 @@ import {
 	calculateMonorepoBumps,
 	calculateSingleBump,
 	incrementVersion,
+	normalizeInitialVersion,
 	type MonorepoBumpContext,
 } from './version.ts'
 
@@ -126,13 +127,15 @@ export function calculateBumpsFromInfos(
 		// Skip private packages (defense in depth - should already be filtered)
 		if (pkg.private) continue
 
-		// First release: use package.json version directly (but need commits to trigger)
+		// First release: use package.json version (but need commits to trigger)
+		// Auto-upgrade 0.0.0 to 0.1.0 (0.0.0 is not a valid release version)
 		if (!npmVersion) {
 			if (commits.length === 0) continue
+			const initialVersion = normalizeInitialVersion(pkg.version)
 			firstReleases.push({
 				package: pkg.name,
-				currentVersion: pkg.version,
-				newVersion: pkg.version,
+				currentVersion: initialVersion,
+				newVersion: initialVersion,
 				releaseType: 'initial',
 				commits,
 			})
@@ -187,12 +190,13 @@ export function calculateSingleBumpFromInfo(
 ): VersionBump | null {
 	const { pkg, npmVersion, commits } = info
 
-	// First release: use package.json version directly
+	// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
 	if (!npmVersion) {
+		const initialVersion = normalizeInitialVersion(pkg.version)
 		return {
 			package: pkg.name,
-			currentVersion: pkg.version,
-			newVersion: pkg.version,
+			currentVersion: initialVersion,
+			newVersion: initialVersion,
 			releaseType: 'initial',
 			commits,
 		}
