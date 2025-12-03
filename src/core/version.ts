@@ -52,6 +52,23 @@ export function normalizeInitialVersion(version: string): string {
 }
 
 /**
+ * Create a VersionBump for initial release
+ */
+export function createInitialBump(
+	pkg: PackageInfo,
+	commits: ConventionalCommit[]
+): VersionBump {
+	const version = normalizeInitialVersion(pkg.version)
+	return {
+		package: pkg.name,
+		currentVersion: version,
+		newVersion: version,
+		releaseType: 'initial',
+		commits,
+	}
+}
+
+/**
  * Increment version based on release type
  * Automatically adjusts for 0.x semver rules
  */

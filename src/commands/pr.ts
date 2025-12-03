@@ -10,6 +10,7 @@ import {
 	calculateBumpWithBumpFiles,
 	calculateCascadeBumps,
 	consumeBumpFiles,
+	createInitialBump,
 	discoverPackages,
 	filterCommitsForPackage,
 	generateChangelogEntry,
@@ -20,7 +21,6 @@ import {
 	incrementVersion,
 	isMonorepo,
 	loadConfig,
-	normalizeInitialVersion,
 	readBumpFiles,
 	readBumpState,
 	updateChangelog,
@@ -228,17 +228,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 				continue
 			}
 
-			// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
+			// First release
 			if (!npmVersion) {
-				const initialVersion = normalizeInitialVersion(pkg.version)
-				consola.info(`First release: ${pkg.name}@${initialVersion}`)
-				bumps.push({
-					package: pkg.name,
-					currentVersion: initialVersion,
-					newVersion: initialVersion,
-					releaseType: 'initial',
-					commits: pkgCommits,
-				})
+				const bump = createInitialBump(pkg, pkgCommits)
+				consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
+				bumps.push(bump)
 				continue
 			}
 
@@ -328,19 +322,11 @@ export async function runPr(options: PrOptions = {}): Promise<void> {
 			return
 		}
 
-		// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
+		// First release
 		if (!info.npmVersion) {
-			const initialVersion = normalizeInitialVersion(pkg.version)
-			consola.info(`First release: ${pkg.name}@${initialVersion}`)
-			bumps = [
-				{
-					package: pkg.name,
-					currentVersion: initialVersion,
-					newVersion: initialVersion,
-					releaseType: 'initial',
-					commits: info.commits,
-				},
-			]
+			const bump = createInitialBump(pkg, info.commits)
+			consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
+			bumps = [bump]
 		} else {
 			// Calculate bump with bump file support
 			const bump = calculateBumpWithBumpFiles(pkg, info.commits, bumpFiles, config)

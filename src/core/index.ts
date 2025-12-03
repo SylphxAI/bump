@@ -11,6 +11,7 @@ export {
 export {
 	incrementVersion,
 	normalizeInitialVersion,
+	createInitialBump,
 	isValidVersion,
 	compareVersions,
 	getHighestVersion,

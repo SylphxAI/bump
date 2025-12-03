@@ -5,6 +5,7 @@ import {
 	type MonorepoBumpContext,
 	calculateMonorepoBumps,
 	calculateSingleBump,
+	createInitialBump,
 	discoverPackages,
 	formatVersionTag,
 	generateChangelogEntry,
@@ -12,7 +13,6 @@ import {
 	getSinglePackage,
 	isMonorepo,
 	loadConfig,
-	normalizeInitialVersion,
 	updateChangelog,
 	updateDependencyVersions,
 	updatePackageVersion,
@@ -110,18 +110,12 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 			const baseline = baselineTag ?? 'no previous release'
 			consola.info(`  ${pc.cyan(pkg.name)}: ${commits.length} commits since ${baseline}`)
 
-			// First release: use package.json version (auto-upgrade 0.0.0 to 0.1.0)
+			// First release
 			if (!npmVersion) {
 				if (commits.length === 0) continue
-				const initialVersion = normalizeInitialVersion(pkg.version)
-				consola.info(`  ${pc.dim('→')} First release: ${initialVersion}`)
-				firstReleases.push({
-					package: pkg.name,
-					currentVersion: initialVersion,
-					newVersion: initialVersion,
-					releaseType: 'initial',
-					commits,
-				})
+				const bump = createInitialBump(pkg, commits)
+				consola.info(`  ${pc.dim('→')} First release: ${bump.newVersion}`)
+				firstReleases.push(bump)
 				continue
 			}
 
@@ -225,17 +219,9 @@ export async function runBump(options: BumpOptions = {}): Promise<ReleaseContext
 					dryRun: options.dryRun ?? false,
 				}
 			}
-			const initialVersion = normalizeInitialVersion(pkg.version)
-			consola.info(`First release: ${pkg.name}@${initialVersion}`)
-			bumps = [
-				{
-					package: pkg.name,
-					currentVersion: initialVersion,
-					newVersion: initialVersion,
-					releaseType: 'initial',
-					commits,
-				},
-			]
+			const bump = createInitialBump(pkg, commits)
+			consola.info(`First release: ${pkg.name}@${bump.newVersion}`)
+			bumps = [bump]
 		} else {
 			// Local > npm: already bumped, just publish
 			const semver = await import('semver')
