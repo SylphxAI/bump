@@ -3,6 +3,10 @@ import { join } from 'node:path'
 import type { BumpConfig, PackageInfo } from '../types.ts'
 import { readPackageJson, writePackageJson } from '../utils/fs.ts'
 
+/** Dependency types to process for workspace resolution */
+const DEP_TYPES = ['dependencies', 'devDependencies', 'peerDependencies'] as const
+type DepType = (typeof DEP_TYPES)[number]
+
 /**
  * Discover packages in a monorepo
  */
@@ -153,7 +157,7 @@ export function saveWorkspaceDeps(cwd: string, packages: PackageInfo[]): Workspa
 
 		const pkgSnapshot = new Map<string, Map<string, string>>()
 
-		for (const depType of ['dependencies', 'devDependencies', 'peerDependencies'] as const) {
+		for (const depType of DEP_TYPES) {
 			const deps = pkg[depType]
 			if (!deps) continue
 
@@ -187,7 +191,7 @@ export function restoreWorkspaceDeps(snapshot: WorkspaceDepsSnapshot): void {
 		if (!pkg) continue
 
 		for (const [depType, depTypeSnapshot] of pkgSnapshot) {
-			const deps = pkg[depType as 'dependencies' | 'devDependencies' | 'peerDependencies']
+			const deps = pkg[depType as DepType]
 			if (!deps) continue
 
 			for (const [name, originalValue] of depTypeSnapshot) {
@@ -237,10 +241,12 @@ export function updateDependencyVersions(
 		const pkgPath = allPaths[i]
 		if (!pkg || !pkgPath) continue
 
-		const updated =
-			updateWorkspaceDeps(pkg.dependencies, updates) ||
-			updateWorkspaceDeps(pkg.devDependencies, updates) ||
-			updateWorkspaceDeps(pkg.peerDependencies, updates)
+		let updated = false
+		for (const depType of DEP_TYPES) {
+			if (updateWorkspaceDeps(pkg[depType], updates)) {
+				updated = true
+			}
+		}
 
 		if (updated) {
 			writePackageJson(pkgPath, pkg)
