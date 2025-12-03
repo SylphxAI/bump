@@ -1,5 +1,25 @@
 # @sylphx/bump
 
+## 1.6.2 (2025-12-03)
+
+### 🐛 Bug Fixes
+
+- **types:** resolve all TypeScript strict mode errors ([37755a2](https://github.com/SylphxAI/bump/commit/37755a2e984070ecc6cac8068dd46a0d77854393))
+- run build before publish ([49ab99b](https://github.com/SylphxAI/bump/commit/49ab99bcfc6312df163693070d50df49ca59b220))
+- remove node_modules from cache and add explicit bun install ([60d09c5](https://github.com/SylphxAI/bump/commit/60d09c5aadfd950dc9587f779692f7545026db00))
+
+### ♻️ Refactoring
+
+- **version:** extract compareLocalVsNpm helper ([5db470c](https://github.com/SylphxAI/bump/commit/5db470c21f65bc73e60ed35400c838d202c518da))
+- **commands:** split god functions into smaller helpers ([f12f96c](https://github.com/SylphxAI/bump/commit/f12f96c6442ba7ff4a249c7ea7b77ed456cfd713))
+- **pr:** extract magic numbers to named constants ([c3c6e32](https://github.com/SylphxAI/bump/commit/c3c6e320a45be76cf6949dcab06799e5faf2c277))
+- rename core/index.ts to core/exports.ts for clarity ([f3398bc](https://github.com/SylphxAI/bump/commit/f3398bc5a977afc45d8962a1f1d52172ea3825bd))
+- **packages:** extract DEP_TYPES constant and reduce duplication ([e53f3ed](https://github.com/SylphxAI/bump/commit/e53f3edde3f22aa8c78e22b26935b9527caeab0c))
+- standardize error handling with custom error classes ([456444b](https://github.com/SylphxAI/bump/commit/456444bfe79471aabf6d5a4d4edfadbdc5a0a339))
+- **bumpfile:** replace require() with static imports ([0dc9683](https://github.com/SylphxAI/bump/commit/0dc96833f229ea74e8418a43f17eeffdebfba39e))
+- rename changeset.ts to bumpfile.ts ([c90db5c](https://github.com/SylphxAI/bump/commit/c90db5c8f613da53824c12dc60fb18780c0e058a))
+- **version:** extract createInitialBump helper to reduce duplication ([50cb40a](https://github.com/SylphxAI/bump/commit/50cb40a6c05ddb51b77fd755875bd1559e7319ed))
+
 ## 1.6.1 (2025-12-03)
 
 ### 🐛 Bug Fixes
