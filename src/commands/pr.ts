@@ -26,7 +26,7 @@ import {
 	updateChangelog,
 	updatePackageVersion,
 	writeBumpState,
-} from '../core/index.ts'
+} from '../core/exports.ts'
 import type { VersionBump } from '../types.ts'
 import { CIError } from '../utils/errors.ts'
 import { getCurrentBranch, getGitHubRepoUrl, getGitRoot } from '../utils/git.ts'

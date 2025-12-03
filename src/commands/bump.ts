@@ -16,7 +16,7 @@ import {
 	updateChangelog,
 	updateDependencyVersions,
 	updatePackageVersion,
-} from '../core/index.ts'
+} from '../core/exports.ts'
 import type { ReleaseContext, VersionBump } from '../types.ts'
 import {
 	commit,

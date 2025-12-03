@@ -10,7 +10,7 @@ import {
 	groupCommitsByType,
 	isMonorepo,
 	loadConfig,
-} from '../core/index.ts'
+} from '../core/exports.ts'
 import { getCurrentBranch, getGitRoot, isWorkingTreeClean } from '../utils/git.ts'
 
 export interface StatusOptions {

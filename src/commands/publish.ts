@@ -14,7 +14,7 @@ import {
 	resolveAllWorkspaceDeps,
 	restoreWorkspaceDeps,
 	saveWorkspaceDeps,
-} from '../core/index.ts'
+} from '../core/exports.ts'
 import { PublishError, ValidationError } from '../utils/errors.ts'
 import { getNpmPublishedVersion } from '../utils/npm.ts'
 import { detectPM, getInstallCommand, getInstallCommandCI } from '../utils/pm.ts'
