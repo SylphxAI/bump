@@ -1,7 +1,7 @@
 import consola from 'consola'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getBumpDir, isExplicitVersion } from '../core/changeset.ts'
+import { getBumpDir, isExplicitVersion } from '../core/bumpfile.ts'
 import { discoverPackages, isMonorepo } from '../core/packages.ts'
 import { loadConfig } from '../core/config.ts'
 

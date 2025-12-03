@@ -7,7 +7,7 @@ import {
 	parseBumpFile,
 	readBumpFiles,
 	type BumpFile,
-} from '../src/core/changeset.ts'
+} from '../src/core/bumpfile.ts'
 
 const TEST_DIR = join(import.meta.dir, '.test-bumpfile')
 const BUMP_DIR = join(TEST_DIR, '.bump')

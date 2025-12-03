@@ -338,23 +338,3 @@ export function generateBumpFileChangelog(bumpFiles: BumpFile[]): string {
 
 	return contents.join('\n\n')
 }
-
-// Legacy aliases for backward compatibility during migration
-/** @deprecated Use BumpFile instead */
-export type Changeset = BumpFile
-/** @deprecated Use BumpState instead */
-export type ChangesetState = BumpState
-/** @deprecated Use readBumpFiles instead */
-export const readChangesets = readBumpFiles
-/** @deprecated Use parseBumpFile instead */
-export const parseChangeset = parseBumpFile
-/** @deprecated Use consumeBumpFiles instead */
-export const consumeChangesets = consumeBumpFiles
-/** @deprecated Use readBumpState instead */
-export const readChangesetState = readBumpState
-/** @deprecated Use writeBumpState instead */
-export const writeChangesetState = writeBumpState
-/** @deprecated Use filterBumpFilesForPackage instead */
-export const filterChangesetsForPackage = filterBumpFilesForPackage
-/** @deprecated Use generateBumpFileChangelog instead */
-export const generateChangesetChangelog = generateBumpFileChangelog

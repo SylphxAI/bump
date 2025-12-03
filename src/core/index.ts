@@ -55,7 +55,6 @@ export {
 	type CalculateBumpsResult,
 } from './release.ts'
 export {
-	// Primary exports (new names)
 	readBumpFiles,
 	parseBumpFile,
 	consumeBumpFiles,
@@ -71,14 +70,4 @@ export {
 	hasBumpDir,
 	type BumpFile,
 	type BumpState,
-	// Legacy aliases (deprecated)
-	readChangesets,
-	parseChangeset,
-	consumeChangesets,
-	readChangesetState,
-	writeChangesetState,
-	filterChangesetsForPackage,
-	generateChangesetChangelog,
-	type Changeset,
-	type ChangesetState,
-} from './changeset.ts'
+} from './bumpfile.ts'

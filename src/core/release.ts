@@ -26,7 +26,7 @@ import {
 	getHighestReleaseType,
 	getPrerelease,
 	isExplicitVersion,
-} from './changeset.ts'
+} from './bumpfile.ts'
 import { getConventionalCommits } from './commits.ts'
 import {
 	calculateMonorepoBumps,
