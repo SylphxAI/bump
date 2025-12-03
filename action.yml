@@ -55,16 +55,18 @@ runs:
       with:
         bun-version: latest
 
-    - name: Cache bun dependencies
+    - name: Cache bun global
       uses: actions/cache@v4
       with:
-        path: |
-          ~/.bun/install/cache
-          node_modules
-          */node_modules
-        key: bun-${{ runner.os }}-${{ hashFiles('**/bun.lockb', '**/package.json') }}
+        path: ~/.bun/install/cache
+        key: bun-global-${{ runner.os }}-${{ hashFiles('**/bun.lock', '**/package.json') }}
         restore-keys: |
-          bun-${{ runner.os }}-
+          bun-global-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: bun install --frozen-lockfile
 
     - name: Install bump CLI
       if: inputs.skip-install != 'true'
