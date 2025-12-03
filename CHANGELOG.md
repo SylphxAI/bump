@@ -1,5 +1,11 @@
 # @sylphx/bump
 
+## 1.6.1 (2025-12-03)
+
+### 🐛 Bug Fixes
+
+- **version:** change initial version auto-upgrade from 0.1.0 to 0.0.1 ([b877255](https://github.com/SylphxAI/bump/commit/b87725569a170b1a46f054bcdd0b3d7f9c50d218))
+
 ## 1.6.0 (2025-12-03)
 
 auto-upgrade 0.0.0 to 0.1.0 for initial releases
