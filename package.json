@@ -1,6 +1,6 @@
 {
 	"name": "@sylphx/bump",
-	"version": "1.6.1",
+	"version": "1.6.2",
 	"description": "Modern changelog and release management",
 	"type": "module",
 	"exports": {
