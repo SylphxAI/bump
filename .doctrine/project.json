@@ -131,6 +131,12 @@
         "target": "central ADR-29 required-context rollout or repo-local branch protection audit"
       },
       {
+        "id": "biome-lint-existing-debt",
+        "description": "Current CI fails on existing Biome lint/format diagnostics in source and test files before this documentation-only manifest PR can merge.",
+        "owner": "SylphxAI/bump",
+        "target": "before this repository can accept documentation-only PRs through current CI"
+      },
+      {
         "id": "release-runbook-missing",
         "description": "Package publication uses GitHub and npm tokens; add a runbook for failed release PRs, failed publishes, and registry forward fixes.",
         "owner": "SylphxAI/bump",
