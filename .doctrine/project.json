@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repo": "SylphxAI/bump",
+    "name": "SylphxAI Bump",
+    "lifecycle": "production",
+    "layer": "tooling",
+    "summary": "Bun-based semantic release, changelog, and package publishing tool with a CLI and composite GitHub Action.",
+    "goals": [
+      "Provide the @sylphx/bump CLI for semantic versioning, changelog generation, release PRs, and package publishing.",
+      "Provide the composite GitHub Action surface used by repositories that want bump-driven release automation.",
+      "Support monorepo package detection, workspace dependency resolution, bump files, prereleases, GitHub releases, and npm publication."
+    ],
+    "nonGoals": [
+      "Own the products or packages that consume bump.",
+      "Own organization-wide branch protection, release approval policy, npm token rotation, or package registry operations.",
+      "Own enterprise engineering doctrine, standards, or project manifest schema."
+    ]
+  },
+  "boundaries": {
+    "owns": [
+      {
+        "name": "bump-cli",
+        "description": "The CLI entry point, commands, release engine, changelog generation, package detection, and npm/GitHub integration code under src."
+      },
+      {
+        "name": "bump-github-action",
+        "description": "The composite action.yml and detect/action.yml surfaces used by consuming repositories."
+      },
+      {
+        "name": "bump-validation",
+        "description": "Bun-based tests, lint/typecheck/build scripts, workflow examples, and release workflow for this package."
+      }
+    ],
+    "doesNotOwn": [
+      "Release eligibility, branch protection, secrets, package contents, or deployment outcomes in consuming repositories.",
+      "Organization-wide package registry administration, npm token rotation, or release approval policy.",
+      "Enterprise doctrine and manifest schema owned by SylphxAI/doctrine."
+    ],
+    "publicSurfaces": [
+      {
+        "type": "documentation",
+        "name": "CLI and package README",
+        "location": "README.md"
+      },
+      {
+        "type": "manifest",
+        "name": "Package manifest and scripts",
+        "location": "package.json"
+      },
+      {
+        "type": "cli",
+        "name": "Bump CLI entry point",
+        "location": "src/cli.ts"
+      },
+      {
+        "type": "api",
+        "name": "Release core",
+        "location": "src/core/"
+      },
+      {
+        "type": "api",
+        "name": "GitHub adapter",
+        "location": "src/adapters/github.ts"
+      },
+      {
+        "type": "workflow",
+        "name": "Composite GitHub Action",
+        "location": "action.yml"
+      },
+      {
+        "type": "workflow",
+        "name": "CI and release workflows",
+        "location": ".github/workflows/"
+      },
+      {
+        "type": "test",
+        "name": "Bun test suite",
+        "location": "tests/"
+      }
+    ],
+    "allowedDependencies": [
+      {
+        "repo": "SylphxAI/doctrine",
+        "surface": "project manifest schema and engineering doctrine",
+        "direction": "peer-public"
+      }
+    ],
+    "forbiddenCouplings": [
+      "Do not encode a consuming repository's product release policy as bump core behavior.",
+      "Do not store registry credentials or organization release approvals in this package.",
+      "Do not fork doctrine standards into this repository."
+    ]
+  },
+  "documentation": {
+    "adr": {
+      "path": "docs/adr/",
+      "status": "planned"
+    },
+    "specs": {
+      "path": "README.md",
+      "status": "present"
+    },
+    "catalog": {
+      "path": ".doctrine/project.json",
+      "status": "present"
+    },
+    "runbooks": {
+      "path": "docs/runbooks/",
+      "status": "planned"
+    },
+    "generatedReferences": {
+      "path": "CHANGELOG.md",
+      "status": "present"
+    }
+  },
+  "delivery": {
+    "ciModel": "legacy-ci",
+    "requiredContexts": [],
+    "deployPath": "Main-branch Release workflow builds the package and dogfoods the local composite action to create release PRs or publish with NPM_TOKEN.",
+    "productionProof": "Passing bun run lint, bun run typecheck, bun test, bun run build, and successful release workflow or registry readback for published versions.",
+    "recoveryClass": "forward-fix-only"
+  },
+  "adoption": {
+    "status": "baseline",
+    "gaps": [
+      {
+        "id": "required-contexts-not-recorded",
+        "description": "CI exists for pull requests and merge queue, but required branch protection contexts are not recorded in this manifest baseline.",
+        "owner": "SylphxAI/bump",
+        "target": "central ADR-29 required-context rollout or repo-local branch protection audit"
+      },
+      {
+        "id": "release-runbook-missing",
+        "description": "Package publication uses GitHub and npm tokens; add a runbook for failed release PRs, failed publishes, and registry forward fixes.",
+        "owner": "SylphxAI/bump",
+        "target": "before next release workflow change"
+      }
+    ]
+  }
+}
