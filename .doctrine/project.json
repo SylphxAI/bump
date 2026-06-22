@@ -121,7 +121,23 @@
     "requiredContexts": [],
     "deployPath": "Main-branch Release workflow builds the package and dogfoods the local composite action to create release PRs or publish with NPM_TOKEN.",
     "productionProof": "Passing bun run lint, bun run typecheck, bun test, bun run build, and successful release workflow or registry readback for published versions.",
-    "recoveryClass": "forward-fix-only"
+    "recoveryClass": "forward-fix-only",
+    "packageRelease": {
+      "publishesPackages": true,
+      "ecosystems": [
+        "npm",
+        "github-release",
+        "github-action"
+      ],
+      "releaseIntent": "Bump files and conventional commits are this repository's Changesets-equivalent release intent, as documented in README.md.",
+      "versionPr": "Current release workflow dogfoods the local composite action to create release PRs; ADR-59 target is bot/GitHub App-owned version PRs through sylphx-release-bot before ratchet.",
+      "publisher": "Protected GitHub Actions release workflow publishes with NPM_TOKEN as a bounded token fallback until npm OIDC/trusted publishing and provenance are adopted.",
+      "requiredContexts": [
+        "CI / test",
+        "release evidence / registry readback"
+      ],
+      "publishProof": "npm registry readback for @sylphx/bump, GitHub release or tag readback, and provenance or attestation evidence when trusted publishing is adopted."
+    }
   },
   "adoption": {
     "status": "baseline",
