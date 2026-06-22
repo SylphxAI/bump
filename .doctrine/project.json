@@ -5,6 +5,7 @@
     "name": "SylphxAI Bump",
     "lifecycle": "production",
     "layer": "tooling",
+    "policyPool": "agent-tool",
     "summary": "Bun-based semantic release, changelog, and package publishing tool with a CLI and composite GitHub Action.",
     "goals": [
       "Provide the @sylphx/bump CLI for semantic versioning, changelog generation, release PRs, and package publishing.",
@@ -116,6 +117,7 @@
   },
   "delivery": {
     "ciModel": "legacy-ci",
+    "deployable": false,
     "requiredContexts": [],
     "deployPath": "Main-branch Release workflow builds the package and dogfoods the local composite action to create release PRs or publish with NPM_TOKEN.",
     "productionProof": "Passing bun run lint, bun run typecheck, bun test, bun run build, and successful release workflow or registry readback for published versions.",
