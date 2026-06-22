@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "repo": "SylphxAI/bump",
+    "name": "Bump",
+    "lifecycle": "production",
+    "layer": "tooling",
+    "summary": "Bump is a production release-automation tool that creates release PRs, changelogs, semantic versions, GitHub releases, and npm publishes.",
+    "goals": [
+      "Own the @sylphx/bump CLI, GitHub Action, release PR logic, monorepo package detection, changelog generation, and npm publishing workflow.",
+      "Keep package release semantics explicit, testable, and compatible with Bun, npm, yarn, pnpm, and workspace protocols.",
+      "Dogfood the local action through the repo release workflow before publishing."
+    ],
+    "nonGoals": [
+      "Own downstream repositories' product release policy, branch protection, npm credentials, or publishing approval.",
+      "Silently redefine Changesets, npm, GitHub Actions, or enterprise doctrine behavior outside Bump's documented public contract.",
+      "Treat source revert as complete recovery after a package version has been published."
+    ]
+  },
+  "boundaries": {
+    "owns": [
+      {
+        "name": "release-automation",
+        "description": "Release intent parsing, package graph detection, semantic version planning, changelog generation, and release PR creation."
+      },
+      {
+        "name": "package-publishing-action",
+        "description": "The @sylphx/bump CLI and GitHub Action entrypoints used by repositories to publish npm packages."
+      }
+    ],
+    "doesNotOwn": [
+      "Downstream repositories' product release policy, branch protection, npm credentials, or publishing approval.",
+      "The npm registry, GitHub Actions platform, or enterprise doctrine policy.",
+      "Package-specific release decisions for sibling repositories unless they are expressed through Bump's public action inputs."
+    ],
+    "publicSurfaces": [
+      {
+        "type": "package-export",
+        "name": "@sylphx/bump npm package and CLI",
+        "location": "package.json"
+      },
+      {
+        "type": "workflow",
+        "name": "GitHub Action entrypoints",
+        "location": "action.yml and detect/action.yml"
+      },
+      {
+        "type": "documentation",
+        "name": "Release automation documentation",
+        "location": "README.md"
+      },
+      {
+        "type": "status-context",
+        "name": "Required branch context",
+        "location": "test"
+      }
+    ],
+    "allowedDependencies": [
+      {
+        "repo": "SylphxAI/doctrine",
+        "surface": "enterprise engineering doctrine",
+        "direction": "downward"
+      }
+    ],
+    "forbiddenCouplings": [
+      "Do not add downstream-repo special cases to release planning without a documented action input or public contract.",
+      "Do not publish package versions without explicit release intent and npm publish proof.",
+      "Do not rely on source revert for already-published npm versions."
+    ]
+  },
+  "documentation": {
+    "adr": {
+      "path": "docs/adr/",
+      "status": "planned"
+    },
+    "specs": {
+      "path": "README.md",
+      "status": "present"
+    },
+    "catalog": {
+      "path": "PROJECT.md",
+      "status": "present"
+    },
+    "runbooks": {
+      "path": "examples/",
+      "status": "present"
+    },
+    "generatedReferences": {
+      "path": "dist/",
+      "status": "generated"
+    }
+  },
+  "delivery": {
+    "ciModel": "legacy-ci",
+    "requiredContexts": [
+      "test"
+    ],
+    "deployPath": "Release workflow builds the package and dogfoods the local action to create release PRs or publish to npm with NPM_TOKEN.",
+    "productionProof": "Required CI context, build output, generated release PR or publish run, npm package readback, and GitHub release/changelog evidence.",
+    "recoveryClass": "forward-fix-only",
+    "packageRelease": {
+      "publishesPackages": true,
+      "ecosystems": [
+        "npm",
+        "github-actions"
+      ],
+      "releaseIntent": "Conventional commits and optional bump files determine release intent; release workflow dogfoods the local Bump action.",
+      "versionPr": "Bump creates or updates release PRs before publishing unless explicitly configured for direct release mode.",
+      "publisher": "GitHub Actions release workflow using GITHUB_TOKEN and NPM_TOKEN.",
+      "requiredContexts": [
+        "test"
+      ],
+      "publishProof": "npm package readback for @sylphx/bump plus release PR/GitHub release/changelog evidence."
+    }
+  },
+  "adoption": {
+    "status": "baseline",
+    "gaps": [
+      {
+        "id": "central-admission",
+        "description": "CI is repo-local legacy GitHub Actions; migrate to central admission or stable status fan-in when the fleet workflow is ready.",
+        "owner": "SylphxAI/bump",
+        "target": "before full doctrine adoption"
+      },
+      {
+        "id": "release-actor",
+        "description": "Clarify whether Bump should publish with a dedicated release bot identity rather than the default GitHub token actor.",
+        "owner": "SylphxAI/bump",
+        "target": "before standardizing package publish identity across the fleet"
+      }
+    ]
+  }
+}
