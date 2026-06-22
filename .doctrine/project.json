@@ -6,6 +6,7 @@
     "name": "Bump",
     "lifecycle": "production",
     "layer": "tooling",
+    "policyPool": "agent-tool",
     "summary": "Release automation CLI and GitHub Action that turns conventional commits and optional bump files into release PRs, changelogs, versions, and npm publication.",
     "goals": [
       "Own the Bump CLI, GitHub Action contract, release PR generation, changelog generation, semantic version calculation, package detection, workspace handling, and npm publish orchestration.",
@@ -102,6 +103,7 @@
   },
   "delivery": {
     "ciModel": "legacy-ci",
+    "deployable": false,
     "requiredContexts": [
       "test"
     ],
@@ -114,13 +116,14 @@
         "npm",
         "github-action"
       ],
-      "releaseIntent": "Conventional commits and optional bump files define release intent.",
-      "versionPr": "Bump creates or updates a release PR, then publishes after the release PR merge when running in auto mode.",
-      "publisher": "The repository release workflow dogfoods the local GitHub Action with GITHUB_TOKEN and NPM_TOKEN.",
+      "releaseIntent": "Conventional commits and optional bump files are Bump's Changesets-equivalent release intent; the repo-local adoption gap tracks the ADR for when Bump is approved instead of Changesets.",
+      "versionPr": "Bump creates or updates a bot/GitHub App-owned release PR, then publishes after the release PR merge when running in auto mode; the current workflow dogfoods the local action while the release-bot path is certified.",
+      "publisher": "The protected GitHub Actions release workflow publishes with NPM_TOKEN as a bounded token fallback until npm OIDC/trusted publishing and provenance are adopted.",
       "requiredContexts": [
-        "test"
+        "test",
+        "release evidence / registry readback"
       ],
-      "publishProof": "Release proof is the Release workflow conclusion plus npm version readback for @sylphx/bump and GitHub action tag/readme verification when relevant."
+      "publishProof": "Release proof is the Release workflow conclusion, npm registry readback for @sylphx/bump, GitHub action tag/readme verification when relevant, and provenance or attestation evidence when trusted publishing is adopted."
     }
   },
   "commercial": {
