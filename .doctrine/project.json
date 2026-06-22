@@ -1,0 +1,156 @@
+{
+  "$schema": "https://github.com/SylphxAI/doctrine/schemas/project-manifest.schema.json",
+  "schemaVersion": 1,
+  "project": {
+    "repo": "SylphxAI/bump",
+    "name": "Bump",
+    "lifecycle": "production",
+    "layer": "tooling",
+    "summary": "Release automation CLI and GitHub Action that turns conventional commits and optional bump files into release PRs, changelogs, versions, and npm publication.",
+    "goals": [
+      "Own the Bump CLI, GitHub Action contract, release PR generation, changelog generation, semantic version calculation, package detection, workspace handling, and npm publish orchestration.",
+      "Maintain tests, examples, action metadata, release workflow dogfooding, and documentation for release automation behavior.",
+      "Provide reusable release mechanics without encoding project-specific product, pricing, or roadmap policy."
+    ],
+    "nonGoals": [
+      "Own every package repository's release readiness, package-specific API policy, pricing, roadmap, or changelog content.",
+      "Own GitHub, npm, runner fleet, organization secrets, package access control, or branch protection policy.",
+      "Own application delivery, deployment, database migration, or runtime rollback behavior."
+    ]
+  },
+  "boundaries": {
+    "owns": [
+      {
+        "name": "bump-cli",
+        "description": "The local CLI commands for status, bump files, release PR creation, version calculation, changelog generation, and publish orchestration."
+      },
+      {
+        "name": "bump-github-action",
+        "description": "The composite GitHub Action interface in action.yml and the action behavior used by consuming repositories."
+      },
+      {
+        "name": "release-detection-core",
+        "description": "Conventional commit parsing, workspace/package detection, cascade bump logic, changelog rendering, and npm publish mechanics."
+      }
+    ],
+    "doesNotOwn": [
+      "Package-specific release intent, API compatibility decisions, pricing, roadmap, or product launch decisions for consuming repositories.",
+      "GitHub branch protection, npm org permissions, runner fleet capacity, or central CI admission policy.",
+      "Runtime deployment, canary, rollback, or database recovery flows."
+    ],
+    "publicSurfaces": [
+      {
+        "type": "cli",
+        "name": "bump CLI",
+        "location": "src/cli.ts"
+      },
+      {
+        "type": "api",
+        "name": "Bump TypeScript modules",
+        "location": "src/"
+      },
+      {
+        "type": "manifest",
+        "name": "GitHub Action metadata",
+        "location": "action.yml"
+      },
+      {
+        "type": "documentation",
+        "name": "User README and workflow examples",
+        "location": "README.md and examples/"
+      },
+      {
+        "type": "workflow",
+        "name": "CI and release workflows",
+        "location": ".github/workflows/"
+      }
+    ],
+    "allowedDependencies": [
+      {
+        "repo": "SylphxAI/doctrine",
+        "surface": "project manifest schema, runner policy, CI admission doctrine, and agent execution standards",
+        "direction": "peer-public"
+      }
+    ],
+    "forbiddenCouplings": [
+      "Do not hardcode a consuming repository's product-specific release, pricing, roadmap, or package policy into Bump.",
+      "Do not make Bump require Sylphx-only deployment, runtime, or infrastructure assumptions for normal public package use.",
+      "Do not treat Bump as the source of truth for package readiness; consuming repositories must own their tests, release intent, and publication proof."
+    ]
+  },
+  "documentation": {
+    "adr": {
+      "path": "docs/adr/",
+      "status": "planned"
+    },
+    "specs": {
+      "path": "README.md and action.yml",
+      "status": "present"
+    },
+    "catalog": {
+      "path": ".doctrine/project.json",
+      "status": "present"
+    },
+    "runbooks": {
+      "path": "README.md",
+      "status": "present"
+    },
+    "generatedReferences": {
+      "path": "dist/",
+      "status": "generated"
+    }
+  },
+  "delivery": {
+    "ciModel": "legacy-ci",
+    "requiredContexts": [
+      "test"
+    ],
+    "deployPath": "Pull requests and merge groups run the repository CI workflow. Main release automation dogfoods the local action through .github/workflows/release.yml.",
+    "productionProof": "Package-impacting work must prove CI, tests, typecheck, build output, action contract compatibility, release PR behavior where affected, and npm version readback after publication.",
+    "recoveryClass": "source-revertable",
+    "packageRelease": {
+      "publishesPackages": true,
+      "ecosystems": [
+        "npm",
+        "github-action"
+      ],
+      "releaseIntent": "Conventional commits and optional bump files define release intent.",
+      "versionPr": "Bump creates or updates a release PR, then publishes after the release PR merge when running in auto mode.",
+      "publisher": "The repository release workflow dogfoods the local GitHub Action with GITHUB_TOKEN and NPM_TOKEN.",
+      "requiredContexts": [
+        "test"
+      ],
+      "publishProof": "Release proof is the Release workflow conclusion plus npm version readback for @sylphx/bump and GitHub action tag/readme verification when relevant."
+    }
+  },
+  "commercial": {
+    "status": "not-applicable",
+    "decisionHome": "README.md and future ADRs for material packaging or positioning changes.",
+    "pricingSourceOfTruth": "No product pricing source of truth; Bump is an open-source release automation package and GitHub Action.",
+    "metricsSourceOfTruth": "npm package downloads, GitHub Action usage, issue reports, CI results, and release workflow telemetry.",
+    "requiredRecords": [
+      "none"
+    ],
+    "guardrails": [
+      "Do not add pricing, packaging, or commercial positioning changes without ADR-backed market and usage evidence.",
+      "Release behavior changes must preserve consuming repository ownership of release intent and publish proof."
+    ]
+  },
+  "adoption": {
+    "status": "baseline",
+    "gaps": [
+      {
+        "id": "adr29-admission",
+        "description": "Bump uses repo-local legacy CI contexts rather than central ADR-29 admission contexts.",
+        "owner": "SylphxAI/bump",
+        "target": "Adopt central admission workflow when the shared package/tool template is available."
+      },
+      {
+        "id": "package-release-standard",
+        "description": "Bump intentionally dogfoods Bump instead of Changesets; central doctrine should document when Bump versus Changesets is the approved package release path.",
+        "owner": "SylphxAI/doctrine",
+        "target": "Package release doctrine ADR and shared workflow catalog."
+      }
+    ]
+  }
+}

@@ -10,25 +10,57 @@ on:
 
 jobs:
   test:
-    runs-on: [self-hosted, sylphx, linux, standard]
+    runs-on: sylphx-linux-standard
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect runtime changes
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          elif [ "${{ github.event_name }}" = "merge_group" ]; then
+            base="$(git merge-base HEAD origin/main)"
+          else
+            base="HEAD^"
+          fi
+
+          git diff --name-only "$base" HEAD | tee /tmp/changed-files
+          if grep -Ev '^(\.doctrine/|\.github/|AGENTS\.md$|PROJECT\.md$|README\.md$|examples/)' /tmp/changed-files | grep -q .; then
+            echo "runtime=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "runtime=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip runtime checks for project-control-only changes
+        if: steps.changes.outputs.runtime != 'true'
+        run: echo "No runtime-affecting package changes detected; central project-control and runner audits cover this change."
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.changes.outputs.runtime == 'true'
         with:
           bun-version: latest
 
       - name: Install dependencies
+        if: steps.changes.outputs.runtime == 'true'
         run: bun install
 
       - name: Lint
+        if: steps.changes.outputs.runtime == 'true'
         run: bun run lint
 
       - name: Type check
+        if: steps.changes.outputs.runtime == 'true'
         run: bun run typecheck
 
       - name: Test
+        if: steps.changes.outputs.runtime == 'true'
         run: bun test
 
       - name: Build
+        if: steps.changes.outputs.runtime == 'true'
         run: bun run build
