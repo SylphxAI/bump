@@ -1,0 +1,19 @@
+name: Deprecate on npm
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Deprecation message'
+        required: true
+        default: '@sylphx/bump is retired. The org standardized release tooling on Changesets (changesets/action). See SylphxAI/.github docs/adr/0002.'
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm deprecate @sylphx/bump "${{ inputs.message }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
