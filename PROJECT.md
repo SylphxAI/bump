@@ -1,25 +1,46 @@
 # Bump Project Boundary
 
-Bump is the Sylphx release automation CLI and GitHub Action. It turns conventional commits and optional bump files into release PRs, changelogs, semantic versions, and npm publication.
+## Status: Retired
 
-## Goals
+`@sylphx/bump` is retired. SylphxAI package releases now use Changesets for release intent/version PRs and the reusable `SylphxAI/.github/.github/workflows/release.yml@main` workflow for workspace-safe publishing.
 
-- Keep the `bump` CLI and GitHub Action stable for package repositories.
-- Own version calculation, changelog generation, release PR creation, workspace/package detection, cascade bump logic, and publish orchestration.
-- Maintain tests, workflow examples, action metadata, dogfood release workflow, and package documentation.
+Do not relaunch Bump, add new consumers, or use semantic-commit auto-bumping as the release source of truth. The npm package is deprecated and the GitHub Action now fails fast with a retirement message.
 
-## Non-Goals
+## Historical scope
 
-- Do not own consuming repositories' API compatibility, package-specific release intent, pricing, roadmap, or product launch policy.
+Bump was a release automation CLI and GitHub Action that turned conventional commits and optional bump files into release PRs, changelogs, semantic versions, and npm publication. This behavior is retained only as historical source code for auditability.
+
+## Current non-goals
+
+- Do not own consuming repositories' release readiness or package-specific policy.
 - Do not own GitHub branch protection, npm org permissions, runner fleet capacity, or central CI admission policy.
 - Do not own runtime deploy, database migration, canary, rollback, or production app recovery behavior.
+- Do not publish new `@sylphx/bump` versions.
 
-## Required Records
+## Canonical replacement
 
-- Public CLI, GitHub Action input/output, publish semantics, or roadmap decisions should be recorded in ADRs under `docs/adr/` before they become durable policy.
-- Release intent is expressed through conventional commits and optional bump files.
-- The machine-readable project source of truth is `.doctrine/project.json`.
+Use Changesets plus the central Sylphx release workflow:
 
-## Agent Entry
+```yaml
+name: Release
 
-Before changing behavior, read `.doctrine/project.json`, this file, `README.md`, `action.yml`, and the affected tests. Keep Bump reusable and zero-knowledge of consuming project internals.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      id-token: write
+    uses: SylphxAI/.github/.github/workflows/release.yml@main
+    secrets: inherit
+```
+
+The central publisher materializes internal workspace ranges, packs and audits the tarball manifest, then publishes the exact audited tarball with npm.
+
+## Agent entry
+
+Treat this repository as retired. Changes should be limited to archival metadata, security deprecation evidence, or documentation that prevents future use.
