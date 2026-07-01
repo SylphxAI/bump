@@ -30,7 +30,7 @@ jobs:
           fi
 
           git diff --name-only "$base" HEAD | tee /tmp/changed-files
-          if grep -Ev '^(\.doctrine/|\.github/|AGENTS\.md$|PROJECT\.md$|README\.md$|examples/)' /tmp/changed-files | grep -q .; then
+          if grep -Ev '^(\.doctrine/|\.github/|AGENTS\.md$|PROJECT\.md$|README\.md$|action\.yml$|examples/)' /tmp/changed-files | grep -q .; then
             echo "runtime=true" >> "$GITHUB_OUTPUT"
           else
             echo "runtime=false" >> "$GITHUB_OUTPUT"

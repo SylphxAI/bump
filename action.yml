@@ -1,156 +1,58 @@
-name: 'Bump Release'
-description: 'Modern changelog and release management for Bun'
-author: 'SylphxAI'
-
-branding:
-  icon: 'package'
-  color: 'orange'
+name: 'Bump (retired)'
+description: 'Retired. Use Changesets and SylphxAI/.github/.github/workflows/release.yml@main instead.'
 
 inputs:
+  github-token:
+    description: 'Unused; retained only so old workflow YAML fails with a clear retirement message.'
+    required: false
+  npm-token:
+    description: 'Unused; retained only so old workflow YAML fails with a clear retirement message.'
+    required: false
   mode:
-    description: 'Mode: "auto" (default), "pr", or "publish"'
+    description: 'Unused; Bump is retired.'
     required: false
     default: 'auto'
-  base-branch:
-    description: 'Base branch for PR mode'
-    required: false
-    default: 'main'
   dry-run:
-    description: 'Preview changes without applying them'
+    description: 'Unused; Bump is retired.'
     required: false
     default: 'false'
-  github-token:
-    description: 'GitHub token for creating releases'
+  base-branch:
+    description: 'Unused; Bump is retired.'
     required: false
-    default: ${{ github.token }}
-  npm-token:
-    description: 'NPM token for publishing packages'
-    required: false
+    default: 'main'
   working-directory:
-    description: 'Working directory for the action'
+    description: 'Unused; Bump is retired.'
     required: false
     default: '.'
   skip-install:
-    description: 'Skip installing bump CLI'
+    description: 'Unused; Bump is retired.'
     required: false
     default: 'false'
   cli-path:
-    description: 'Path to bump CLI'
+    description: 'Unused; Bump is retired.'
     required: false
     default: 'bump'
 
 outputs:
   published:
-    description: 'Whether packages were published'
-    value: ${{ steps.bump.outputs.published }}
+    description: 'Always false because Bump is retired.'
+    value: 'false'
   versions:
-    description: 'JSON object of package versions {"pkg-name": "1.0.0"}'
-    value: ${{ steps.bump.outputs.versions }}
+    description: 'Always empty because Bump is retired.'
+    value: '{}'
 
 runs:
   using: 'composite'
   steps:
-    - name: Setup Bun with cache
-      uses: oven-sh/setup-bun@v2
-      with:
-        bun-version: latest
-
-    - name: Cache bun global
-      uses: actions/cache@v4
-      with:
-        path: ~/.bun/install/cache
-        key: bun-global-${{ runner.os }}-${{ hashFiles('**/bun.lock', '**/package.json') }}
-        restore-keys: |
-          bun-global-${{ runner.os }}-
-
-    - name: Install dependencies
+    - name: Fail because Bump is retired
       shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: bun install --frozen-lockfile
-
-    - name: Install bump CLI
-      if: inputs.skip-install != 'true'
-      shell: bash
-      run: bun add -g @sylphx/bump
-
-    - name: Run bump
-      id: bump
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-        GH_TOKEN: ${{ inputs.github-token }}
-        NPM_TOKEN: ${{ inputs.npm-token }}
-        BUMP_CLI: ${{ inputs.cli-path }}
       run: |
-        set -euo pipefail
+        cat >&2 <<'MSG'
+        @sylphx/bump is retired.
 
-        # Setup git identity
-        git config user.name "github-actions[bot]" 2>/dev/null || true
-        git config user.email "github-actions[bot]@users.noreply.github.com" 2>/dev/null || true
+        Use Changesets for release intent/version PRs and the central Sylphx release workflow:
+          uses: SylphxAI/.github/.github/workflows/release.yml@main
 
-        # Determine mode
-        # - If latest commit is from release PR merge → publish mode
-        # - Otherwise → pr mode (create/update release PR)
-        MODE="${{ inputs.mode }}"
-        if [ "$MODE" = "auto" ]; then
-          LATEST_COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null || echo "")
-
-          # Check for squash merge: commit message starts with "chore(release):"
-          # Check for merge commit: "Merge pull request #X from .../bump/release" or "Merge branch 'bump/release'"
-          if [[ "$LATEST_COMMIT_MSG" == chore\(release\):* ]] || \
-             [[ "$LATEST_COMMIT_MSG" == Merge*bump/release* ]]; then
-            MODE="publish"
-            echo "Detected release PR merge - switching to publish mode"
-          else
-            MODE="pr"
-          fi
-          echo "Auto-detected mode: $MODE"
-        fi
-
-        # PR mode - create/update release PR (preview only)
-        if [ "$MODE" = "pr" ]; then
-          args="pr --base ${{ inputs.base-branch }}"
-          [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
-          $BUMP_CLI $args
-          echo "published=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-
-        # Publish mode - recalculate bumps and publish (only after PR merge)
-        if [ "$MODE" = "publish" ]; then
-          # Build before publishing to ensure dist files exist
-          if [ -f "package.json" ] && grep -q '"build"' package.json; then
-            echo "Building before publish..."
-            bun run build
-          fi
-
-          args="publish"
-          [ "${{ inputs.dry-run }}" = "true" ] && args="$args --dry-run"
-
-          # Capture output to parse version info
-          OUTPUT=$($BUMP_CLI $args 2>&1) || {
-            echo "$OUTPUT"
-            echo "published=false" >> $GITHUB_OUTPUT
-            exit 1
-          }
-          echo "$OUTPUT"
-
-          # Parse the bump result marker
-          RESULT=$(echo "$OUTPUT" | grep -o '::bump-result::{.*}' | sed 's/::bump-result:://' || echo "")
-
-          if [ -n "$RESULT" ]; then
-            PUBLISHED=$(echo "$RESULT" | jq -r '.published')
-            PACKAGES=$(echo "$RESULT" | jq -c '.packages')
-
-            echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
-
-            # Set versions as JSON object {"pkg-name": "1.0.0", ...}
-            if [ "$(echo "$PACKAGES" | jq 'length')" -gt "0" ]; then
-              VERSIONS=$(echo "$PACKAGES" | jq -c 'map({(.name): .version}) | add')
-              echo "versions=$VERSIONS" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "published=false" >> $GITHUB_OUTPUT
-          fi
-        fi
+        Do not add new Bump consumers or semantic-commit auto-bump release paths.
+        MSG
+        exit 1

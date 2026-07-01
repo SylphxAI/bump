@@ -4,34 +4,34 @@
   "project": {
     "repo": "SylphxAI/bump",
     "name": "Bump",
-    "lifecycle": "production",
+    "lifecycle": "retired",
     "layer": "tooling",
     "policyPool": "agent-tool",
-    "summary": "Release automation CLI and GitHub Action that turns conventional commits and optional bump files into release PRs, changelogs, versions, and npm publication.",
+    "summary": "Retired release automation CLI and GitHub Action. SylphxAI now uses Changesets plus the central reusable release workflow for package publishing.",
     "goals": [
-      "Own the Bump CLI, GitHub Action contract, release PR generation, changelog generation, semantic version calculation, package detection, workspace handling, and npm publish orchestration.",
-      "Maintain tests, examples, action metadata, release workflow dogfooding, and documentation for release automation behavior.",
-      "Provide reusable release mechanics without encoding project-specific product, pricing, or roadmap policy."
+      "Preserve historical Bump source for auditability only.",
+      "Prevent new consumers from adopting Bump by keeping retirement status explicit.",
+      "Point package repositories to Changesets and the central Sylphx reusable release workflow."
     ],
     "nonGoals": [
-      "Own every package repository's release readiness, package-specific API policy, pricing, roadmap, or changelog content.",
-      "Own GitHub, npm, runner fleet, organization secrets, package access control, or branch protection policy.",
-      "Own application delivery, deployment, database migration, or runtime rollback behavior."
+      "Do not publish new @sylphx/bump versions.",
+      "Do not add new release automation behavior or consuming-project policy.",
+      "Do not relaunch semantic-commit auto-bumping as the SylphxAI release source of truth."
     ]
   },
   "boundaries": {
     "owns": [
       {
         "name": "bump-cli",
-        "description": "The local CLI commands for status, bump files, release PR creation, version calculation, changelog generation, and publish orchestration."
+        "description": "Historical only: The local CLI commands for status, bump files, release PR creation, version calculation, changelog generation, and publish orchestration."
       },
       {
         "name": "bump-github-action",
-        "description": "The composite GitHub Action interface in action.yml and the action behavior used by consuming repositories."
+        "description": "Historical only: The composite GitHub Action interface in action.yml and the action behavior used by consuming repositories."
       },
       {
         "name": "release-detection-core",
-        "description": "Conventional commit parsing, workspace/package detection, cascade bump logic, changelog rendering, and npm publish mechanics."
+        "description": "Historical only: Conventional commit parsing, workspace/package detection, cascade bump logic, changelog rendering, and npm publish mechanics."
       }
     ],
     "doesNotOwn": [
@@ -140,20 +140,7 @@
     ]
   },
   "adoption": {
-    "status": "baseline",
-    "gaps": [
-      {
-        "id": "adr29-admission",
-        "description": "Bump uses repo-local legacy CI contexts rather than central ADR-29 admission contexts.",
-        "owner": "SylphxAI/bump",
-        "target": "Adopt central admission workflow when the shared package/tool template is available."
-      },
-      {
-        "id": "package-release-standard",
-        "description": "Bump intentionally dogfoods Bump instead of Changesets; central doctrine should document when Bump versus Changesets is the approved package release path.",
-        "owner": "SylphxAI/doctrine",
-        "target": "Package release doctrine ADR and shared workflow catalog."
-      }
-    ]
+    "status": "retired",
+    "gaps": []
   }
 }
